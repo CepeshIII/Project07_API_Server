@@ -25,8 +25,9 @@ type CommentStore struct {
 
 func (s *CommentStore) Create(ctx context.Context, comment *Comment) error {
 	query := `
-	INSERT INTO comments (post_id, user_id, content)
-	VALUES ($1, $2, $3) RETURNING id, created_at
+		INSERT INTO comments (post_id, user_id, content)
+		VALUES ($1, $2, $3) 
+		RETURNING id, created_at
 	`
 	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
 	defer cancel()
