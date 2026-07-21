@@ -11,6 +11,7 @@ type Storage struct {
 		GetByID(context.Context, int64) (*Post, error)
 		Update(context.Context, int64, *Post) error
 		Delete(context.Context, int64) error
+		GetUserFeed(context.Context, int64, PaginatedFeedQuery) ([]*PostWithMetadata, error)
 	}
 
 	Users interface {
@@ -24,12 +25,19 @@ type Storage struct {
 		GetByPostID(context.Context, int64) ([]CommentWithUser, error)
 		DeleteByPostID(context.Context, int64) error
 	}
+
+	Followers interface {
+		FollowUser(context.Context, int64, int64) error
+		UnfollowUser(context.Context, int64, int64) error
+		GetFollowers(context.Context, int64) ([]Follower, error)
+	}
 }
 
 func NewStorage(db *sql.DB) Storage {
 	return Storage{
-		Posts:    &PostStore{db: db},
-		Users:    &UserStore{db: db},
-		Comments: &CommentStore{db: db},
+		Posts:     &PostStore{db: db},
+		Users:     &UserStore{db: db},
+		Comments:  &CommentStore{db: db},
+		Followers: &FollowersStore{db: db},
 	}
 }
