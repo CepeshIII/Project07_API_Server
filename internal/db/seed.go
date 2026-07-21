@@ -119,9 +119,10 @@ var postComments = []string{
 
 func Seed(storage *store.Storage) error {
 	ctx := context.Background()
-	users := generateUsers(10)
-	posts := generatePosts(10)
-	comments := generateComments(10)
+	users := generateUsers(10000)
+	posts := generatePosts(10000)
+	comments := generateComments(10000)
+	followers := generateFollowers(10000, 10, 100)
 
 	for _, user := range users {
 		err := storage.Users.Create(ctx, user)
@@ -144,13 +145,20 @@ func Seed(storage *store.Storage) error {
 		}
 	}
 
+	for _, follower := range followers {
+		err := storage.Followers.FollowUser(ctx, follower.UserId, follower.FollowerId)
+		if err != nil {
+			return fmt.Errorf("failed to create follower: %w", err)
+		}
+	}
+
 	fmt.Println("Seeding complete")
 	return nil
 }
 
 func generateUsers(count int) []*store.User {
 	users := make([]*store.User, 0, count)
-	for i := 0; i < count; i++ {
+	for i := 1; i <= count; i++ {
 		users = append(users, &store.User{
 			// ID:       int64(i),
 			Username: usernames[i%len(usernames)] + fmt.Sprintf("%d", i),
@@ -163,12 +171,12 @@ func generateUsers(count int) []*store.User {
 
 func generatePosts(count int) []*store.Post {
 	posts := make([]*store.Post, 0, count)
-	for i := 0; i < count; i++ {
+	for i := 1; i <= count; i++ {
 		posts = append(posts, &store.Post{
 			// ID:      int64(i),
 			Title:   postTitles[rand.Intn(len(postTitles))],
 			Content: postContents[rand.Intn(len(postContents))],
-			UserID:  int64(i + 1),
+			UserID:  int64(i),
 			Tags: []string{
 				postTags[rand.Intn(len(postTags))],
 				postTags[rand.Intn(len(postTags))],
@@ -180,13 +188,48 @@ func generatePosts(count int) []*store.Post {
 
 func generateComments(count int) []*store.Comment {
 	comments := make([]*store.Comment, 0, count)
-	for i := 0; i < count; i++ {
+	for i := 1; i <= count; i++ {
 		comments = append(comments, &store.Comment{
 			// ID:      int64(i),
 			Content: postComments[rand.Intn(len(postComments))],
-			UserID:  int64(i + 1),
-			PostID:  int64(i + 1),
+			UserID:  int64(i),
+			PostID:  int64(i),
 		})
 	}
 	return comments
+}
+
+func generateFollowers(usersCount int, minFollowerCount int, maxFollowerCount int) []*store.Follower {
+	rand.Uint32()
+
+	followers := make([]*store.Follower, 0, usersCount)
+	var usersFollowersID = map[int]int{}
+
+	for userID := 1; userID <= usersCount; userID++ {
+		userFollowersCount := rand.Intn(maxFollowerCount-minFollowerCount+1) + minFollowerCount
+		currentFollowersCount := 0
+
+		for k := range usersFollowersID {
+			delete(usersFollowersID, k)
+		}
+
+		for {
+			if currentFollowersCount >= userFollowersCount {
+				break
+			}
+
+			newFollowersID := rand.Intn(usersCount) + 1
+			_, ok := usersFollowersID[newFollowersID]
+
+			if !ok {
+				usersFollowersID[newFollowersID] = 1
+				currentFollowersCount++
+				followers = append(followers, &store.Follower{
+					UserId:     int64(userID),
+					FollowerId: int64(newFollowersID),
+				})
+			}
+		}
+	}
+	return followers
 }

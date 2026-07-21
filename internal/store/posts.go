@@ -12,12 +12,18 @@ import (
 var (
 	ErrNotFound          = errors.New("record not found")
 	ErrConflict          = errors.New("resource conflict: version mismatch")
+	ErrorConflict        = errors.New("resource conflict: already exists")
 	QueryTimeoutDuration = 5 * time.Second
 )
 
 type PostWithComments struct {
 	Post     *Post             `json:"post_data"`
 	Comments []CommentWithUser `json:"post_comments"`
+}
+
+type PostWithMetadata struct {
+	Post          *Post `json:"post_data"`
+	CommentsCount int   `json:"comments_count"`
 }
 
 type Post struct {
@@ -31,6 +37,8 @@ type Post struct {
 
 	CreatedAt string `json:"created_at"`
 	UpdatedAt string `json:"updated_at"`
+
+	User *User `json:"user"`
 }
 
 type PostStore struct {
@@ -158,4 +166,84 @@ func (s *PostStore) Delete(ctx context.Context, postID int64) error {
 	}
 
 	return nil
+}
+
+func (s *PostStore) GetUserFeed(ctx context.Context, postID int64, fq PaginatedFeedQuery) ([]*PostWithMetadata, error) {
+	query :=
+		`
+		SELECT 
+  			p.id, p.title, p.user_id, p.content, p.created_at, p.version, p.tags, u.username,
+  			COUNT(c.id) AS comments_count
+		FROM posts p
+		LEFT JOIN comments c ON c.post_id = p.id
+		LEFT JOIN users u ON p.user_id = u.id
+		JOIN followers f ON f.follower_id = p.user_id OR p.user_id = $1
+		WHERE 
+			(COALESCE(NULLIF($6, ''), '') = '' OR p.created_at >= $6::timestamptz)
+		AND
+			(COALESCE(NULLIF($7, ''), '') = '' OR p.created_at <= $7::timestamptz)
+		AND
+    		(p.tags = '{}' OR p.tags @> $4)
+		AND	
+			(p.content ILIKE '%' || $5 || '%' OR p.title ILIKE '%' || $5 || '%')
+    	AND 
+			(f.user_id = $1 OR p.user_id = $1)
+
+		GROUP BY p.id, u.username
+		ORDER BY p.created_at
+		` +
+			fq.Sort +
+			`
+		LIMIT $2
+		OFFSET $3
+	`
+
+	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
+
+	defer cancel()
+
+	rows, err := s.db.QueryContext(
+		ctx,
+		query,
+		postID,
+		fq.Limit,
+		fq.Offset,
+		pq.Array(fq.Tags),
+		fq.Query,
+		fq.Since,
+		fq.Until,
+	)
+
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	feed := []*PostWithMetadata{}
+	for rows.Next() {
+		var p PostWithMetadata
+		var post Post
+		post.User = &User{}
+		err = rows.Scan(
+			&post.ID,
+			&post.Title,
+			&post.UserID,
+			&post.Content,
+			&post.CreatedAt,
+			&post.Version,
+			pq.Array(&post.Tags),
+			&post.User.Username,
+			&p.CommentsCount,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		feed = append(feed, &PostWithMetadata{
+			Post:          &post,
+			CommentsCount: p.CommentsCount,
+		})
+	}
+
+	return feed, nil
 }
