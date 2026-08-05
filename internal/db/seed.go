@@ -2,9 +2,12 @@ package db
 
 import (
 	"context"
-	"course/api_server/internal/store"
+	"database/sql"
 	"fmt"
 	"math/rand"
+	"time"
+
+	"github.com/CepeshIII/Project07_API_Server/internal/store"
 )
 
 var usernames = []string{
@@ -117,15 +120,18 @@ var postComments = []string{
 	"Renewable energy is the future. We need to invest more in it.",
 }
 
-func Seed(storage *store.Storage) error {
+func Seed(storage *store.Storage, db *sql.DB) error {
 	ctx := context.Background()
+	// tx, _ := db.BeginTx(ctx, nil)
+
 	users := generateUsers(10000)
 	posts := generatePosts(10000)
 	comments := generateComments(10000)
 	followers := generateFollowers(10000, 10, 100)
 
 	for _, user := range users {
-		err := storage.Users.Create(ctx, user)
+		err := storage.Users.CreateAndInvite(ctx, user, "some-token", time.Duration(24*time.Hour))
+
 		if err != nil {
 			return fmt.Errorf("failed to create user %s: %w", user.Username, err)
 		}
@@ -159,12 +165,13 @@ func Seed(storage *store.Storage) error {
 func generateUsers(count int) []*store.User {
 	users := make([]*store.User, 0, count)
 	for i := 1; i <= count; i++ {
-		users = append(users, &store.User{
+		user := &store.User{
 			// ID:       int64(i),
 			Username: usernames[i%len(usernames)] + fmt.Sprintf("%d", i),
 			Email:    usernames[i%len(usernames)] + fmt.Sprintf("%d", i) + "@example.com",
-			Password: "password",
-		})
+		}
+		user.Password.Set("password") // Set a default password for all users
+		users = append(users, user)
 	}
 	return users
 }

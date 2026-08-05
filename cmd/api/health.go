@@ -4,11 +4,27 @@ import (
 	"net/http"
 )
 
+type HealthCheckData struct {
+	Status  string `json:"status" example:"ok"`
+	Env     string `json:"env" example:"development"`
+	Version string `json:"version" example:"1.0.0"`
+}
+
+// HealthCheck godoc
+//
+//	@Summary		Health check
+//	@Description	Returns the API health status, environment, and version
+//	@Tags			health
+//	@Accept			json
+//	@Produce		json
+//	@Success		200	{object}	map[string]string
+//	@Failure		500	{object}	ErrorEnvelope
+//	@Router			/health [get]
 func (app *application) healthCheckHandler(w http.ResponseWriter, r *http.Request) {
-	data := map[string]string{
-		"status":  "ok",
-		"env":     app.config.env,
-		"version": version,
+	data := HealthCheckData{
+		Status:  "ok",
+		Env:     app.config.env,
+		Version: version,
 	}
 
 	err := app.jsonResponse(w, http.StatusOK, data)

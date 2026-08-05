@@ -10,10 +10,13 @@ import (
 )
 
 var (
-	ErrNotFound          = errors.New("record not found")
-	ErrConflict          = errors.New("resource conflict: version mismatch")
-	ErrorConflict        = errors.New("resource conflict: already exists")
-	QueryTimeoutDuration = 5 * time.Second
+	ErrNotFound            = errors.New("record not found")
+	ErrConflict            = errors.New("resource conflict: version mismatch")
+	ErrorConflict          = errors.New("resource conflict: already exists")
+	ErrorDuplicateEmail    = errors.New("user with this email already exists")
+	ErrorDuplicateUsername = errors.New("user with this username already exists")
+	ErrorInvalidToken      = errors.New("invalid or expired token")
+	QueryTimeoutDuration   = 5 * time.Second
 )
 
 type PostWithComments struct {
@@ -27,10 +30,10 @@ type PostWithMetadata struct {
 }
 
 type Post struct {
-	ID      int64  `json:"id"`
+	ID      int64  `json:"id" example:"1"`
 	Content string `json:"content"`
 	Title   string `json:"title"`
-	UserID  int64  `json:"user_id"`
+	UserID  int64  `json:"user_id" example:"1"`
 	Version int    `json:"version"`
 
 	Tags []string `json:"tags"`

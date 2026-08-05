@@ -1,0 +1,670 @@
+basePath: /v1
+definitions:
+  main.CommentsEnvelope:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/store.Comment'
+        type: array
+    type: object
+  main.CreateCommentPayload:
+    properties:
+      content:
+        type: string
+      user_id:
+        example: 1
+        type: integer
+    type: object
+  main.CreatePostPayload:
+    properties:
+      content:
+        maxLength: 1000
+        type: string
+      tags:
+        items:
+          type: string
+        type: array
+      title:
+        maxLength: 200
+        type: string
+      user_id:
+        example: 1
+        type: integer
+    required:
+    - content
+    - title
+    - user_id
+    type: object
+  main.ErrorEnvelope:
+    properties:
+      error:
+        type: string
+    type: object
+  main.FollowUserPayload:
+    properties:
+      user_id:
+        example: 1
+        type: integer
+    type: object
+  main.FollowersEnvelope:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/store.Follower'
+        type: array
+    type: object
+  main.MessageEnvelope:
+    properties:
+      data:
+        type: string
+    type: object
+  main.PostWithCommentsEnvelope:
+    properties:
+      data:
+        $ref: '#/definitions/store.PostWithComments'
+    type: object
+  main.RegisterUserPayload:
+    properties:
+      email:
+        default: mail@example.com
+        maxLength: 255
+        type: string
+      password:
+        default: password
+        maxLength: 72
+        minLength: 3
+        type: string
+      username:
+        default: user
+        maxLength: 100
+        type: string
+    required:
+    - email
+    - password
+    - username
+    type: object
+  main.RegisterUserResponse:
+    properties:
+      user:
+        $ref: '#/definitions/store.User'
+      verification_token:
+        type: string
+    type: object
+  main.RegisterUserResponseEnvelope:
+    properties:
+      data:
+        $ref: '#/definitions/main.RegisterUserResponse'
+    type: object
+  main.UpdatePostPayload:
+    properties:
+      content:
+        maxLength: 1000
+        type: string
+      tags:
+        items:
+          type: string
+        type: array
+      title:
+        maxLength: 200
+        type: string
+    type: object
+  main.UserEnvelope:
+    properties:
+      data:
+        $ref: '#/definitions/store.User'
+    type: object
+  store.Comment:
+    properties:
+      content:
+        type: string
+      created_at:
+        type: string
+      id:
+        type: integer
+      post_id:
+        type: integer
+      user_id:
+        type: integer
+    type: object
+  store.CommentWithUser:
+    properties:
+      content:
+        type: string
+      created_at:
+        type: string
+      id:
+        type: integer
+      post_id:
+        type: integer
+      user_id:
+        type: integer
+      username:
+        type: string
+    type: object
+  store.Follower:
+    properties:
+      created_at:
+        type: string
+      follower_id:
+        type: integer
+      user_id:
+        type: integer
+    type: object
+  store.Post:
+    properties:
+      content:
+        type: string
+      created_at:
+        type: string
+      id:
+        example: 1
+        type: integer
+      tags:
+        items:
+          type: string
+        type: array
+      title:
+        type: string
+      updated_at:
+        type: string
+      user:
+        $ref: '#/definitions/store.User'
+      user_id:
+        example: 1
+        type: integer
+      version:
+        type: integer
+    type: object
+  store.PostWithComments:
+    properties:
+      post_comments:
+        items:
+          $ref: '#/definitions/store.CommentWithUser'
+        type: array
+      post_data:
+        $ref: '#/definitions/store.Post'
+    type: object
+  store.User:
+    properties:
+      created_at:
+        type: string
+      email:
+        type: string
+      id:
+        example: 1
+        type: integer
+      is_active:
+        type: boolean
+      username:
+        type: string
+    type: object
+info:
+  contact:
+    email: support@swagger.io
+    name: API Support
+    url: http://www.swagger.io/support
+  description: API for GopherSocial, a social network for gophers
+  license:
+    name: Apache 2.0
+    url: http://www.apache.org/licenses/LICENSE-2.0.html
+  termsOfService: http://swagger.io/terms/
+  title: GopherSocial API
+paths:
+  /authentication/user:
+    post:
+      consumes:
+      - application/json
+      description: Registers a user
+      parameters:
+      - description: User credentials
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/main.RegisterUserPayload'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/main.RegisterUserResponseEnvelope'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/main.ErrorEnvelope'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/main.ErrorEnvelope'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/main.ErrorEnvelope'
+      summary: Registers a user
+      tags:
+      - authentication
+  /health:
+    get:
+      consumes:
+      - application/json
+      description: Returns the API health status, environment, and version
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/main.ErrorEnvelope'
+      summary: Health check
+      tags:
+      - health
+  /posts/:
+    post:
+      consumes:
+      - application/json
+      description: Creates a new post
+      parameters:
+      - description: Create post request
+        in: body
+        name: post
+        required: true
+        schema:
+          $ref: '#/definitions/main.CreatePostPayload'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/store.Post'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/main.ErrorEnvelope'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/main.ErrorEnvelope'
+      security:
+      - ApiKeyAuth: []
+      summary: Create a new post
+      tags:
+      - posts
+  /posts/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Deletes a post and all its comments by ID
+      parameters:
+      - description: Post ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/main.MessageEnvelope'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/main.ErrorEnvelope'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/main.ErrorEnvelope'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/main.ErrorEnvelope'
+      security:
+      - ApiKeyAuth: []
+      summary: Delete a post
+      tags:
+      - posts
+    get:
+      consumes:
+      - application/json
+      description: Fetches a post by ID
+      parameters:
+      - description: Post ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/main.PostWithCommentsEnvelope'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/main.ErrorEnvelope'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/main.ErrorEnvelope'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/main.ErrorEnvelope'
+      security:
+      - ApiKeyAuth: []
+      summary: Fetches a post
+      tags:
+      - posts
+    patch:
+      consumes:
+      - application/json
+      description: Updates an existing post by ID
+      parameters:
+      - description: Post ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Update post request
+        in: body
+        name: post
+        required: true
+        schema:
+          $ref: '#/definitions/main.UpdatePostPayload'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/store.Post'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/main.ErrorEnvelope'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/main.ErrorEnvelope'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/main.ErrorEnvelope'
+      security:
+      - ApiKeyAuth: []
+      summary: Update a post
+      tags:
+      - posts
+  /posts/{id}/comments:
+    get:
+      consumes:
+      - application/json
+      description: Fetches a post comments by ID
+      parameters:
+      - description: Post ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/main.CommentsEnvelope'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/main.ErrorEnvelope'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/main.ErrorEnvelope'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/main.ErrorEnvelope'
+      security:
+      - ApiKeyAuth: []
+      summary: Fetches a post comments
+      tags:
+      - posts
+    post:
+      consumes:
+      - application/json
+      description: Add a comment to post by postId
+      parameters:
+      - description: Post ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Add comment request
+        in: body
+        name: id
+        required: true
+        schema:
+          $ref: '#/definitions/main.CreateCommentPayload'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/main.MessageEnvelope'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/main.ErrorEnvelope'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/main.ErrorEnvelope'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/main.ErrorEnvelope'
+      security:
+      - ApiKeyAuth: []
+      summary: Add a comment to post
+      tags:
+      - posts
+  /users/{id}:
+    get:
+      consumes:
+      - application/json
+      description: Fetches a user profile by ID
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/main.UserEnvelope'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/main.ErrorEnvelope'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/main.ErrorEnvelope'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/main.ErrorEnvelope'
+      security:
+      - ApiKeyAuth: []
+      summary: Fetches a user profile
+      tags:
+      - users
+  /users/{userID}/follow:
+    put:
+      consumes:
+      - application/json
+      description: Follows a user by ID
+      parameters:
+      - description: User ID
+        in: path
+        name: userID
+        required: true
+        type: integer
+      - description: Follow request
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/main.FollowUserPayload'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: User followed
+          schema:
+            $ref: '#/definitions/main.MessageEnvelope'
+        "400":
+          description: User not found
+          schema:
+            $ref: '#/definitions/main.ErrorEnvelope'
+        "404":
+          description: User payload missing
+          schema:
+            $ref: '#/definitions/main.ErrorEnvelope'
+        "409":
+          description: Status Conflict
+          schema:
+            $ref: '#/definitions/main.ErrorEnvelope'
+      security:
+      - ApiKeyAuth: []
+      summary: Follows a user
+      tags:
+      - users
+  /users/{userID}/followers:
+    get:
+      consumes:
+      - application/json
+      description: Get Followers of a user by User ID
+      parameters:
+      - description: User ID
+        in: path
+        name: userID
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/main.FollowersEnvelope'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/main.ErrorEnvelope'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/main.ErrorEnvelope'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/main.ErrorEnvelope'
+      security:
+      - ApiKeyAuth: []
+      summary: Get Followers of a user
+      tags:
+      - users
+  /users/{userID}/unfollow:
+    put:
+      consumes:
+      - application/json
+      description: unfollow a user by ID
+      parameters:
+      - description: User ID
+        in: path
+        name: userID
+        required: true
+        type: integer
+      - description: Unfollow request
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/main.FollowUserPayload'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: User unfollowed
+          schema:
+            $ref: '#/definitions/main.MessageEnvelope'
+        "400":
+          description: User not found
+          schema:
+            $ref: '#/definitions/main.ErrorEnvelope'
+        "404":
+          description: User payload missing
+          schema:
+            $ref: '#/definitions/main.ErrorEnvelope'
+        "409":
+          description: Status Conflict
+          schema:
+            $ref: '#/definitions/main.ErrorEnvelope'
+      security:
+      - ApiKeyAuth: []
+      summary: unfollow a user
+      tags:
+      - users
+  /users/activate/{token}:
+    put:
+      description: Activates/Registers a user by invitation token
+      parameters:
+      - description: Invitation Token
+        in: path
+        name: token
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: User activated
+          schema:
+            $ref: '#/definitions/main.MessageEnvelope'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/main.ErrorEnvelope'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/main.ErrorEnvelope'
+      security:
+      - ApiKeyAuth: []
+      summary: Activates/Registers a user
+      tags:
+      - users
+securityDefinitions:
+  ApiKeyAuth:
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"

@@ -2,10 +2,13 @@ package main
 
 import (
 	"context"
-	"course/api_server/internal/store"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"net/http"
 	"strconv"
+
+	"github.com/CepeshIII/Project07_API_Server/internal/store"
 
 	"github.com/go-chi/chi/v5"
 )
@@ -15,9 +18,23 @@ type userKey string
 const userCtx userKey = "user"
 
 type FollowUserPayload struct {
-	UserID int64 `json:"user_id"`
+	UserID int64 `json:"user_id" example:"1"`
 }
 
+// GetUser godoc
+//
+//	@Summary		Fetches a user profile
+//	@Description	Fetches a user profile by ID
+//	@Tags			users
+//	@Accept			json
+//	@Produce		json
+//	@Param			id	path		int	true	"User ID"
+//	@Success		200	{object}	UserEnvelope
+//	@Failure		400	{object}	ErrorEnvelope
+//	@Failure		404	{object}	ErrorEnvelope
+//	@Failure		500	{object}	ErrorEnvelope
+//	@Security		ApiKeyAuth
+//	@Router			/users/{id} [get]
 func (app *application) getUserHandler(w http.ResponseWriter, r *http.Request) {
 	user := getUserFromCtx(r)
 
@@ -27,6 +44,21 @@ func (app *application) getUserHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// FollowUser godoc
+//
+//	@Summary		Follows a user
+//	@Description	Follows a user by ID
+//	@Tags			users
+//	@Accept			json
+//	@Produce		json
+//	@Param			userID	path		int					true	"User ID"
+//	@Param			body	body		FollowUserPayload	true	"Follow request"
+//	@Success		200		{object}	MessageEnvelope		"User followed"
+//	@Failure		400		{object}	ErrorEnvelope		"User not found"
+//	@Failure		404		{object}	ErrorEnvelope		"User payload missing"
+//	@Failure		409		{object}	ErrorEnvelope		"Status Conflict"
+//	@Security		ApiKeyAuth
+//	@Router			/users/{userID}/follow [put]
 func (app *application) followUserHandler(w http.ResponseWriter, r *http.Request) {
 	followingUser := getUserFromCtx(r)
 
@@ -65,12 +97,26 @@ func (app *application) followUserHandler(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	if err := app.jsonResponse(w, http.StatusOK, "OK"); err != nil {
+	if err := app.jsonResponse(w, http.StatusOK, "User followed"); err != nil {
 		app.internalServerError(w, r, err)
 		return
 	}
 }
 
+// GetFollowers godoc
+//
+//	@Summary		Get Followers of a user
+//	@Description	Get Followers of a user by User ID
+//	@Tags			users
+//	@Accept			json
+//	@Produce		json
+//	@Param			userID	path		int	true	"User ID"
+//	@Success		200		{object}	FollowersEnvelope
+//	@Failure		400		{object}	ErrorEnvelope
+//	@Failure		404		{object}	ErrorEnvelope
+//	@Failure		500		{object}	ErrorEnvelope
+//	@Security		ApiKeyAuth
+//	@Router			/users/{userID}/followers [get]
 func (app *application) getFollowersHandler(w http.ResponseWriter, r *http.Request) {
 	followingUser := getUserFromCtx(r)
 
@@ -86,6 +132,21 @@ func (app *application) getFollowersHandler(w http.ResponseWriter, r *http.Reque
 	}
 }
 
+// UnfollowUser godoc
+//
+//	@Summary		unfollow a user
+//	@Description	unfollow a user by ID
+//	@Tags			users
+//	@Accept			json
+//	@Produce		json
+//	@Param			userID	path		int					true	"User ID"
+//	@Param			body	body		FollowUserPayload	true	"Unfollow request"
+//	@Success		200		{object}	MessageEnvelope		"User unfollowed"
+//	@Failure		400		{object}	ErrorEnvelope		"User not found"
+//	@Failure		404		{object}	ErrorEnvelope		"User payload missing"
+//	@Failure		409		{object}	ErrorEnvelope		"Status Conflict"
+//	@Security		ApiKeyAuth
+//	@Router			/users/{userID}/unfollow [put]
 func (app *application) unfollowUserHandler(w http.ResponseWriter, r *http.Request) {
 	user := getUserFromCtx(r)
 
@@ -120,6 +181,43 @@ func (app *application) unfollowUserHandler(w http.ResponseWriter, r *http.Reque
 	}
 
 	if err := app.jsonResponse(w, http.StatusOK, "OK"); err != nil {
+		app.internalServerError(w, r, err)
+		return
+	}
+}
+
+// activateUser godoc
+//
+//	@Summary		Activates/Registers a user
+//	@Description	Activates/Registers a user by invitation token
+//	@Tags			users
+//	@Produce		json
+//	@Param			token	path		string			true	"Invitation Token"
+//	@Success		204		{object}	MessageEnvelope	"User activated"
+//	@Failure		404		{object}	ErrorEnvelope
+//	@Failure		500		{object}	ErrorEnvelope
+//
+//	@Security		ApiKeyAuth
+//	@Router			/users/activate/{token} [put]
+func (app *application) activateUserHandler(w http.ResponseWriter, r *http.Request) {
+	token := chi.URLParam(r, "token")
+
+	hash := sha256.Sum256([]byte(token))
+	hashToken := hex.EncodeToString(hash[:])
+
+	err := app.store.Users.ActivateAndClean(r.Context(), string(hashToken))
+	if err != nil {
+		switch {
+		case errors.Is(err, store.ErrNotFound):
+			app.notFoundResponse(w, r, err)
+		case errors.Is(err, store.ErrorInvalidToken):
+			app.badRequestResponse(w, r, err)
+		default:
+			app.internalServerError(w, r, err)
+		}
+		return
+	}
+	if err := app.jsonResponse(w, http.StatusCreated, "User activated"); err != nil {
 		app.internalServerError(w, r, err)
 		return
 	}

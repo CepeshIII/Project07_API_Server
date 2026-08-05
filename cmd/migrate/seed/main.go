@@ -1,9 +1,9 @@
 package main
 
 import (
-	"course/api_server/internal/db"
-	"course/api_server/internal/env"
-	"course/api_server/internal/store"
+	"github.com/CepeshIII/Project07_API_Server/internal/db"
+	"github.com/CepeshIII/Project07_API_Server/internal/env"
+	"github.com/CepeshIII/Project07_API_Server/internal/store"
 )
 
 func main() {
@@ -24,7 +24,7 @@ func main() {
 
 	store := store.NewStorage(conn)
 
-	err = db.Seed(&store)
+	err = db.Seed(&store, conn)
 	if err != nil {
 		panic(err)
 	}
