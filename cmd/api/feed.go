@@ -1,8 +1,9 @@
 package main
 
 import (
-	"course/api_server/internal/store"
 	"net/http"
+
+	"github.com/CepeshIII/Project07_API_Server/internal/store"
 )
 
 func (app *application) getUserFeedHandler(w http.ResponseWriter, r *http.Request) {

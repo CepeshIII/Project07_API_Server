@@ -2,10 +2,11 @@ package main
 
 import (
 	"context"
-	"course/api_server/internal/store"
 	"errors"
 	"net/http"
 	"strconv"
+
+	"github.com/CepeshIII/Project07_API_Server/internal/store"
 
 	"github.com/go-chi/chi/v5"
 )
@@ -18,13 +19,23 @@ type CreatePostPayload struct {
 	Title   string   `json:"title" validate:"required,max=200"`
 	Content string   `json:"content" validate:"required,max=1000"`
 	Tags    []string `json:"tags"`
+	UserId  int      `json:"user_id" validate:"required" example:"1"`
 }
 
-type CreateCommentPayload struct {
-	UserID  int64  `json:"user_id"`
-	Content string `json:"content"`
-}
-
+// CreatePost godoc
+//
+//	@Summary		Create a new post
+//	@Description	Creates a new post
+//	@Tags			posts
+//	@Accept			json
+//	@Produce		json
+//	@Param			post	body		CreatePostPayload	true	"Create post request"
+//
+//	@Success		201		{object}	store.Post
+//	@Failure		400		{object}	ErrorEnvelope
+//	@Failure		500		{object}	ErrorEnvelope
+//	@Security		ApiKeyAuth
+//	@Router			/posts/ [post]
 func (app *application) createPostHandler(w http.ResponseWriter, r *http.Request) {
 	var payload CreatePostPayload
 	if err := readJSON(w, r, &payload); err != nil {
@@ -37,13 +48,11 @@ func (app *application) createPostHandler(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	userId := 1
-
 	post := &store.Post{
 		Title:   payload.Title,
 		Content: payload.Content,
 		Tags:    payload.Tags,
-		UserID:  int64(userId),
+		UserID:  int64(payload.UserId),
 	}
 
 	ctx := r.Context()
@@ -59,6 +68,20 @@ func (app *application) createPostHandler(w http.ResponseWriter, r *http.Request
 	}
 }
 
+// GetPost godoc
+//
+//	@Summary		Fetches a post
+//	@Description	Fetches a post by ID
+//	@Tags			posts
+//	@Accept			json
+//	@Produce		json
+//	@Param			id	path		int	true	"Post ID"
+//	@Success		200	{object}	PostWithCommentsEnvelope
+//	@Failure		400	{object}	ErrorEnvelope
+//	@Failure		404	{object}	ErrorEnvelope
+//	@Failure		500	{object}	ErrorEnvelope
+//	@Security		ApiKeyAuth
+//	@Router			/posts/{id} [get]
 func (app *application) getPostHandler(w http.ResponseWriter, r *http.Request) {
 	// Get post from database
 	post := getPostFromCtx(r)
@@ -86,6 +109,20 @@ func (app *application) getPostHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// GetPostComments godoc
+//
+//	@Summary		Fetches a post comments
+//	@Description	Fetches a post comments by ID
+//	@Tags			posts
+//	@Accept			json
+//	@Produce		json
+//	@Param			id	path		int	true	"Post ID"
+//	@Success		200	{object}	CommentsEnvelope
+//	@Failure		400	{object}	ErrorEnvelope
+//	@Failure		404	{object}	ErrorEnvelope
+//	@Failure		500	{object}	ErrorEnvelope
+//	@Security		ApiKeyAuth
+//	@Router			/posts/{id}/comments [get]
 func (app *application) getPostCommentsHandler(w http.ResponseWriter, r *http.Request) {
 	// Get post from database
 	post := getPostFromCtx(r)
@@ -102,12 +139,27 @@ func (app *application) getPostCommentsHandler(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	if err := app.jsonResponse(w, http.StatusCreated, comments); err != nil {
+	if err := app.jsonResponse(w, http.StatusOK, comments); err != nil {
 		app.internalServerError(w, r, err)
 		return
 	}
 }
 
+// AddComment godoc
+//
+//	@Summary		Add a comment to post
+//	@Description	Add a comment to post by postId
+//	@Tags			posts
+//	@Accept			json
+//	@Produce		json
+//	@Param			id	path		int						true	"Post ID"
+//	@Param			id	body		CreateCommentPayload	true	"Add comment request"
+//	@Success		201	{object}	MessageEnvelope
+//	@Failure		400	{object}	ErrorEnvelope
+//	@Failure		404	{object}	ErrorEnvelope
+//	@Failure		500	{object}	ErrorEnvelope
+//	@Security		ApiKeyAuth
+//	@Router			/posts/{id}/comments [post]
 func (app *application) createCommentHandler(w http.ResponseWriter, r *http.Request) {
 	// Get post from database
 	post := getPostFromCtx(r)
@@ -148,6 +200,21 @@ type UpdatePostPayload struct {
 	Tags    []string `json:"tags"`
 }
 
+// UpdatePost godoc
+//
+//	@Summary		Update a post
+//	@Description	Updates an existing post by ID
+//	@Tags			posts
+//	@Accept			json
+//	@Produce		json
+//	@Param			id		path		int					true	"Post ID"
+//	@Param			post	body		UpdatePostPayload	true	"Update post request"
+//	@Success		201		{object}	store.Post
+//	@Failure		400		{object}	ErrorEnvelope
+//	@Failure		404		{object}	ErrorEnvelope
+//	@Failure		500		{object}	ErrorEnvelope
+//	@Security		ApiKeyAuth
+//	@Router			/posts/{id} [patch]
 func (app *application) updatePostHandler(w http.ResponseWriter, r *http.Request) {
 	// Get post from database
 	post := getPostFromCtx(r)
@@ -199,6 +266,20 @@ func (app *application) updatePostHandler(w http.ResponseWriter, r *http.Request
 	}
 }
 
+// DeletePost godoc
+//
+//	@Summary		Delete a post
+//	@Description	Deletes a post and all its comments by ID
+//	@Tags			posts
+//	@Accept			json
+//	@Produce		json
+//	@Param			id	path		int	true	"Post ID"
+//	@Success		200	{object}	MessageEnvelope
+//	@Failure		400	{object}	ErrorEnvelope
+//	@Failure		404	{object}	ErrorEnvelope
+//	@Failure		500	{object}	ErrorEnvelope
+//	@Security		ApiKeyAuth
+//	@Router			/posts/{id} [delete]
 func (app *application) deletePostHandler(w http.ResponseWriter, r *http.Request) {
 	// Get post from database
 	post := getPostFromCtx(r)
@@ -227,7 +308,7 @@ func (app *application) deletePostHandler(w http.ResponseWriter, r *http.Request
 	}
 
 	// Write responce
-	if err := app.jsonResponse(w, http.StatusCreated, "OK"); err != nil {
+	if err := app.jsonResponse(w, http.StatusOK, "OK"); err != nil {
 		app.internalServerError(w, r, err)
 		return
 	}

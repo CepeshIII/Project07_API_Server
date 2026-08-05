@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"database/sql"
+	"time"
 )
 
 type Storage struct {
@@ -15,8 +16,14 @@ type Storage struct {
 	}
 
 	Users interface {
-		Create(context.Context, *User) error
+		create(context.Context, *sql.Tx, *User) error
+		createUserInvitation(context.Context, *sql.Tx, int64, string, time.Duration) error
+		CreateAndInvite(context.Context, *User, string, time.Duration) error
 		Get(context.Context, int64) (*User, error)
+		ActivateAndClean(context.Context, string) error
+		DeleteInvitation(context.Context, int64) error
+		DeleteUser(context.Context, int64) error
+		DeleteUserAndInvitation(context.Context, int64) error
 	}
 
 	Comments interface {
@@ -40,4 +47,20 @@ func NewStorage(db *sql.DB) Storage {
 		Comments:  &CommentStore{db: db},
 		Followers: &FollowersStore{db: db},
 	}
+}
+
+func withTx(db *sql.DB, ctx context.Context, fn func(*sql.Tx) error) error {
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+
+	if err := fn(tx); err != nil {
+		return err
+		// if rbErr := tx.Rollback(); rbErr != nil {
+		// return rbErr
+		// }
+	}
+
+	return tx.Commit()
 }

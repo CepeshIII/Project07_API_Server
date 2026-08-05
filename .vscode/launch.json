@@ -11,7 +11,7 @@
             "mode": "auto",
             "program": "${fileDirname}",
             "env": {
-                "ADDR": ":1488"
+                "ADDR": ":8080"
             }
         }
     ]

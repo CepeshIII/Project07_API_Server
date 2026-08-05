@@ -1,28 +1,47 @@
 package main
 
 import (
-	"context"
-	"course/api_server/internal/env"
-	"course/api_server/internal/store"
 	"fmt"
-	"log/slog"
 	"net/http"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+
+	"github.com/CepeshIII/Project07_API_Server/docs"
+	"github.com/CepeshIII/Project07_API_Server/internal/env"
+	"github.com/CepeshIII/Project07_API_Server/internal/mailer"
+	"github.com/CepeshIII/Project07_API_Server/internal/store"
+
+	httpSwagger "github.com/swaggo/http-swagger" // http-swagger middleware
+
+	"go.uber.org/zap"
 )
 
 type application struct {
 	config config
-	logger *slog.Logger
 	store  store.Storage
+	logger *zap.SugaredLogger
+	mailer mailer.Client
+}
+
+type mailConfig struct {
+	exp       time.Duration
+	fromEmail string
+	sendGrid  sendGridConfig
+}
+
+type sendGridConfig struct {
+	apikey string
 }
 
 type config struct {
-	addr string
-	db   dbConfig
-	env  string
+	addr        string
+	db          dbConfig
+	env         string
+	apiURL      string
+	mail        mailConfig
+	frontendURL string
 }
 
 type dbConfig struct {
@@ -64,8 +83,14 @@ func (app *application) mount() http.Handler {
 	// processing should be stopped.
 	r.Use(middleware.Timeout(60 * time.Second))
 
+	docsURL := fmt.Sprintf("%s/swagger/doc.json", app.config.addr)
+
 	r.Route("/v1", func(r chi.Router) {
 		r.Get("/health", app.healthCheckHandler)
+
+		r.Get("/swagger/*", httpSwagger.Handler(
+			httpSwagger.URL(docsURL),
+		))
 
 		r.Route("/posts", func(r chi.Router) {
 			r.Post("/", app.createPostHandler)
@@ -86,6 +111,7 @@ func (app *application) mount() http.Handler {
 		})
 
 		r.Route("/users", func(r chi.Router) {
+			r.Put("/activate/{token}", app.activateUserHandler)
 			r.Route("/{userID}", func(r chi.Router) {
 				r.Use(app.userContextMiddleware)
 
@@ -102,12 +128,21 @@ func (app *application) mount() http.Handler {
 
 			})
 		})
+
+		r.Route("/authentication", func(r chi.Router) {
+			r.Post("/user", app.registerUserHandler)
+		})
+
 	})
 
 	return r
 }
 
 func (app *application) run(mux http.Handler) error {
+	// Docs
+	docs.SwaggerInfo.Version = version
+	docs.SwaggerInfo.Host = app.config.apiURL
+	docs.SwaggerInfo.BasePath = "/v1"
 
 	srv := http.Server{
 		Addr:         app.config.addr,
@@ -117,11 +152,11 @@ func (app *application) run(mux http.Handler) error {
 		IdleTimeout:  time.Minute,
 	}
 
-	app.logger.Log(context.Background(), slog.LevelInfo, fmt.Sprintf("Server has start at %s\n", app.config.addr))
+	app.logger.Info(fmt.Sprintf("Server has start at %s\n", app.config.addr))
 
 	err := srv.ListenAndServe()
 
-	app.logger.Log(context.Background(), slog.LevelInfo, fmt.Sprintf("Server has finish at %s\n", app.config.addr))
+	app.logger.Info(fmt.Sprintf("Server has finish at %s\n", app.config.addr))
 
 	return err
 }
