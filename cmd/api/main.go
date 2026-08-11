@@ -47,17 +47,23 @@ func main() {
 		frontendURL: env.GetString("FRONTEND_URL", "http://localhost:4000"),
 		db:          DefaultDBConfig(),
 		env:         env.GetString("ENV", "production"),
+		loggerEnv:   env.GetString("LOGGER_ENV", "production"),
 		mail: mailConfig{
-			exp:       time.Duration(env.GetInt("INVITATION_EXP", 24)) * time.Hour,
-			fromEmail: env.GetString("FROM_EMAIL", ""),
+			exp:        time.Duration(env.GetInt("INVITATION_EXP", 24)) * time.Hour,
+			fromEmail:  env.GetString("FROM_EMAIL", ""),
+			maxRetries: env.GetInt("MAX_RETRIES_TO_SEND_EMAIL", 1),
+
 			sendGrid: sendGridConfig{
 				apikey: env.GetString("SENDGRID_API_KEY", ""),
+			},
+			mailtrap: mailtrapConfig{
+				apikey: env.GetString("MAILTRAP_API_KEY", ""),
 			},
 		},
 	}
 
 	// logger
-	logger := logger.NewLogger(cfg.env)
+	logger := logger.NewLogger(cfg.loggerEnv)
 	defer logger.Sync()
 
 	// database
@@ -79,7 +85,17 @@ func main() {
 	mailer := mailer.NewSendgrid(
 		cfg.mail.sendGrid.apikey,
 		cfg.mail.fromEmail,
+		cfg.env != "production",
 	)
+	// mailer, err := mailer.NewMailtrap(
+	// 	cfg.mail.mailtrap.apikey,
+	// 	cfg.mail.fromEmail,
+	// 	cfg.env != "production",
+	// )
+
+	// if err != nil {
+	// 	logger.Fatal(err)
+	// }
 
 	app := &application{
 		config: cfg,

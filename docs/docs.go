@@ -547,6 +547,46 @@ const docTemplate = `{
                 }
             }
         },
+        "/users/{userID}": {
+            "delete": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Deletes a user by user id",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "users"
+                ],
+                "summary": "Deletes a user",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "UserID",
+                        "name": "userID",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "User deleted",
+                        "schema": {
+                            "$ref": "#/definitions/main.MessageEnvelope"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/main.ErrorEnvelope"
+                        }
+                    }
+                }
+            }
+        },
         "/users/{userID}/follow": {
             "put": {
                 "security": [
