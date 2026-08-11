@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/CepeshIII/Project07_API_Server/internal/mailer"
 	"github.com/CepeshIII/Project07_API_Server/internal/store"
@@ -75,14 +76,8 @@ func (app *application) registerUserHandler(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	response := &RegisterUserResponse{
-		User:  user,
-		Token: plainToken,
-	}
-
 	activationURL := fmt.Sprintf("%s/confirm/%s", app.config.frontendURL, plainToken)
 
-	isProdEnv := app.config.env == "production"
 	vars := struct {
 		Username      string
 		ActivationURL string
@@ -90,18 +85,50 @@ func (app *application) registerUserHandler(w http.ResponseWriter, r *http.Reque
 		Username:      user.Username,
 		ActivationURL: activationURL,
 	}
-	// send the invitation email
-	err = app.mailer.Send(mailer.UserWelcomeTemplate, user.Username, user.Email, vars, !isProdEnv)
+
+	compiledTemplate, err := mailer.BuildTemplate(mailer.UserWelcomeTemplate, vars)
 	if err != nil {
-		app.logger.Errorw("error sending welcome email", "error", err)
-
-		// rollback the user creation if email sending fails (SAGA pattern)
-		if err := app.store.Users.DeleteUserAndInvitation(ctx, user.ID); err != nil {
-			app.logger.Errorw("error rolling back user creation", "error", err)
-		}
-
 		app.internalServerError(w, r, err)
 		return
+	}
+
+	var lastSendErr error
+	var successSend bool
+	for i := range app.config.mail.maxRetries {
+		lastSendErr = app.mailer.Send(r.Context(), user.Username, user.Email, compiledTemplate)
+
+		if lastSendErr == nil {
+			successSend = true
+			break
+		}
+
+		app.logger.Warnw("failed to send activation email",
+			"attempt", i+1,
+			"max_retries", app.config.mail.maxRetries,
+			"email", user.Email,
+			"error", lastSendErr,
+		)
+
+		// exponential backoff before retrying
+		time.Sleep(time.Second * time.Duration(i+1))
+		continue
+
+	}
+
+	// send the invitation email
+	if !successSend {
+		// rollback the user creation if email sending fails (SAGA pattern)
+		if rollbackErr := app.store.Users.DeleteUserAndInvitation(ctx, user.ID); rollbackErr != nil {
+			app.logger.Errorw("error rolling back user creation", "error", rollbackErr)
+		}
+
+		app.internalServerError(w, r, lastSendErr)
+		return
+	}
+
+	response := &RegisterUserResponse{
+		User:  user,
+		Token: plainToken,
 	}
 
 	// send the response

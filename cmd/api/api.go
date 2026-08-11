@@ -26,12 +26,18 @@ type application struct {
 }
 
 type mailConfig struct {
-	exp       time.Duration
-	fromEmail string
-	sendGrid  sendGridConfig
+	exp        time.Duration
+	fromEmail  string
+	maxRetries int
+	sendGrid   sendGridConfig
+	mailtrap   mailtrapConfig
 }
 
 type sendGridConfig struct {
+	apikey string
+}
+
+type mailtrapConfig struct {
 	apikey string
 }
 
@@ -42,6 +48,7 @@ type config struct {
 	apiURL      string
 	mail        mailConfig
 	frontendURL string
+	loggerEnv   string
 }
 
 type dbConfig struct {
@@ -121,6 +128,7 @@ func (app *application) mount() http.Handler {
 
 				r.Put("/follow", app.followUserHandler)
 				r.Put("/unfollow", app.unfollowUserHandler)
+				r.Delete("/", app.deleteUserHandler)
 			})
 
 			r.Group(func(r chi.Router) {

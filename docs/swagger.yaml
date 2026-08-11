@@ -516,6 +516,31 @@ paths:
       summary: Fetches a user profile
       tags:
       - users
+  /users/{userID}:
+    delete:
+      description: Deletes a user by user id
+      parameters:
+      - description: UserID
+        in: path
+        name: userID
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: User deleted
+          schema:
+            $ref: '#/definitions/main.MessageEnvelope'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/main.ErrorEnvelope'
+      security:
+      - ApiKeyAuth: []
+      summary: Deletes a user
+      tags:
+      - users
   /users/{userID}/follow:
     put:
       consumes:

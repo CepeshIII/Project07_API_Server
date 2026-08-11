@@ -223,6 +223,32 @@ func (app *application) activateUserHandler(w http.ResponseWriter, r *http.Reque
 	}
 }
 
+// deleteUser godoc
+//
+//	@Summary		Deletes a user
+//	@Description	Deletes a user by user id
+//	@Tags			users
+//	@Produce		json
+//	@Param			userID	path		string			true	"UserID"
+//	@Success		204		{object}	MessageEnvelope	"User deleted"
+//	@Failure		500		{object}	ErrorEnvelope
+//
+//	@Security		ApiKeyAuth
+//	@Router			/users/{userID} [delete]
+func (app *application) deleteUserHandler(w http.ResponseWriter, r *http.Request) {
+	user := getUserFromCtx(r)
+
+	err := app.store.Users.DeleteUser(r.Context(), user.ID)
+
+	if err != nil {
+		app.internalServerError(w, r, err)
+	}
+
+	if err = app.jsonResponse(w, http.StatusAccepted, "User deleted"); err != nil {
+		app.internalServerError(w, r, err)
+	}
+}
+
 func (app *application) userContextMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		id, err := parseUserID(r)
