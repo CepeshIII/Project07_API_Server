@@ -47,7 +47,7 @@ func (m *SendGridMailer) Send(ctx context.Context, username, userEmail string, c
 	}
 
 	// API status >= 300
-	if response.StatusCode >= 300 {
+	if response.StatusCode == 300 {
 		return fmt.Errorf("%w: status %d (%s)", ErrEmailDeliveryFailed, response.StatusCode, response.Body)
 	}
 

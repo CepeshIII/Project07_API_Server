@@ -129,9 +129,15 @@ func Seed(storage *store.Storage, db *sql.DB) error {
 	comments := generateComments(10000)
 	followers := generateFollowers(10000, 10, 100)
 
-	for _, user := range users {
-		err := storage.Users.CreateAndInvite(ctx, user, "some-token", time.Duration(24*time.Hour))
+	for i, user := range users {
+		token := fmt.Sprintf("some-token%v", i)
 
+		err := storage.Users.CreateAndInvite(ctx, user, token, time.Duration(24*time.Hour))
+		if err != nil {
+			return fmt.Errorf("failed to create user %s: %w", user.Username, err)
+		}
+
+		err = storage.Users.ActivateAndClean(ctx, token)
 		if err != nil {
 			return fmt.Errorf("failed to create user %s: %w", user.Username, err)
 		}
@@ -171,6 +177,7 @@ func generateUsers(count int) []*store.User {
 			Email:    usernames[i%len(usernames)] + fmt.Sprintf("%d", i) + "@example.com",
 		}
 		user.Password.Set("password") // Set a default password for all users
+		user.RoleID = 1
 		users = append(users, user)
 	}
 	return users

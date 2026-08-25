@@ -19,8 +19,13 @@ type Storage struct {
 		create(context.Context, *sql.Tx, *User) error
 		createUserInvitation(context.Context, *sql.Tx, int64, string, time.Duration) error
 		CreateAndInvite(context.Context, *User, string, time.Duration) error
+
 		Get(context.Context, int64) (*User, error)
 		ActivateAndClean(context.Context, string) error
+
+		GetByUsername(context.Context, string) (*User, error)
+		GetByEmail(context.Context, string) (*User, error)
+
 		DeleteInvitation(context.Context, int64) error
 		DeleteUser(context.Context, int64) error
 		DeleteUserAndInvitation(context.Context, int64) error
@@ -38,6 +43,11 @@ type Storage struct {
 		UnfollowUser(context.Context, int64, int64) error
 		GetFollowers(context.Context, int64) ([]Follower, error)
 	}
+
+	Sessions interface {
+		CreateSession(context.Context, *SessionData) error
+		GetSessionByTokenHash(context.Context, *SessionData) error
+	}
 }
 
 func NewStorage(db *sql.DB) Storage {
@@ -46,6 +56,7 @@ func NewStorage(db *sql.DB) Storage {
 		Users:     &UserStore{db: db},
 		Comments:  &CommentStore{db: db},
 		Followers: &FollowersStore{db: db},
+		Sessions:  &SessionsStore{db: db},
 	}
 }
 

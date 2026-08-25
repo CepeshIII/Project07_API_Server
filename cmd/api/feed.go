@@ -29,7 +29,7 @@ func (app *application) getUserFeedHandler(w http.ResponseWriter, r *http.Reques
 
 	ctx := r.Context()
 
-	posts, err := app.store.Posts.GetUserFeed(ctx, 2, fq) // Replace 1 with the actual user ID
+	posts, err := app.store.Posts.GetUserFeed(ctx, 2, fq)
 	if err != nil {
 		app.internalServerError(w, r, err)
 		return

@@ -88,7 +88,7 @@ func (s *CommentStore) GetByPostID(ctx context.Context, postID int64) ([]Comment
 	}
 
 	if len(comments) == 0 {
-		return nil, ErrNotFound
+		return comments, ErrNotFound
 	}
 
 	return comments, nil

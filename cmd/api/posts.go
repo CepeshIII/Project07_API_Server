@@ -19,7 +19,6 @@ type CreatePostPayload struct {
 	Title   string   `json:"title" validate:"required,max=200"`
 	Content string   `json:"content" validate:"required,max=1000"`
 	Tags    []string `json:"tags"`
-	UserId  int      `json:"user_id" validate:"required" example:"1"`
 }
 
 // CreatePost godoc
@@ -37,6 +36,12 @@ type CreatePostPayload struct {
 //	@Security		ApiKeyAuth
 //	@Router			/posts/ [post]
 func (app *application) createPostHandler(w http.ResponseWriter, r *http.Request) {
+	userId, err := getUserIDFromCtx(r)
+	if err != nil {
+		app.badRequestResponse(w, r, err)
+		return
+	}
+
 	var payload CreatePostPayload
 	if err := readJSON(w, r, &payload); err != nil {
 		app.badRequestResponse(w, r, err)
@@ -52,7 +57,7 @@ func (app *application) createPostHandler(w http.ResponseWriter, r *http.Request
 		Title:   payload.Title,
 		Content: payload.Content,
 		Tags:    payload.Tags,
-		UserID:  int64(payload.UserId),
+		UserID:  userId,
 	}
 
 	ctx := r.Context()
@@ -132,11 +137,12 @@ func (app *application) getPostCommentsHandler(w http.ResponseWriter, r *http.Re
 	if err != nil {
 		switch {
 		case errors.Is(err, store.ErrNotFound):
-			app.notFoundResponse(w, r, err)
+			comments = make([]store.CommentWithUser, 0)
+			// app.notFoundResponse(w, r, err)
 		default:
 			app.internalServerError(w, r, err)
+			return
 		}
-		return
 	}
 
 	if err := app.jsonResponse(w, http.StatusOK, comments); err != nil {
@@ -161,6 +167,12 @@ func (app *application) getPostCommentsHandler(w http.ResponseWriter, r *http.Re
 //	@Security		ApiKeyAuth
 //	@Router			/posts/{id}/comments [post]
 func (app *application) createCommentHandler(w http.ResponseWriter, r *http.Request) {
+	userId, err := getUserIDFromCtx(r)
+	if err != nil {
+		app.badRequestResponse(w, r, err)
+		return
+	}
+
 	// Get post from database
 	post := getPostFromCtx(r)
 	ctx := r.Context()
@@ -178,11 +190,11 @@ func (app *application) createCommentHandler(w http.ResponseWriter, r *http.Requ
 
 	comment := &store.Comment{
 		PostID:  post.ID,
-		UserID:  payload.UserID,
+		UserID:  userId,
 		Content: payload.Content,
 	}
 
-	err := app.store.Comments.Create(ctx, comment)
+	err = app.store.Comments.Create(ctx, comment)
 	if err != nil {
 		app.internalServerError(w, r, err)
 		return
@@ -216,8 +228,19 @@ type UpdatePostPayload struct {
 //	@Security		ApiKeyAuth
 //	@Router			/posts/{id} [patch]
 func (app *application) updatePostHandler(w http.ResponseWriter, r *http.Request) {
+	userId, err := getUserIDFromCtx(r)
+	if err != nil {
+		app.badRequestResponse(w, r, err)
+		return
+	}
+
 	// Get post from database
 	post := getPostFromCtx(r)
+
+	if post.UserID != userId {
+		app.statusForbiddenResponse(w, r, errors.New("You do not have permission to edit this post"))
+		return
+	}
 
 	// Parse post ID
 	id, err := parsePostID(r)
@@ -281,8 +304,19 @@ func (app *application) updatePostHandler(w http.ResponseWriter, r *http.Request
 //	@Security		ApiKeyAuth
 //	@Router			/posts/{id} [delete]
 func (app *application) deletePostHandler(w http.ResponseWriter, r *http.Request) {
+	userId, err := getUserIDFromCtx(r)
+	if err != nil {
+		app.badRequestResponse(w, r, err)
+		return
+	}
+
 	// Get post from database
 	post := getPostFromCtx(r)
+
+	if post.UserID != userId {
+		app.statusForbiddenResponse(w, r, errors.New("You do not have permission to delete this post"))
+		return
+	}
 
 	ctx := r.Context()
 	// Try delete comments for post from database
