@@ -2,9 +2,8 @@ package main
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
 
@@ -16,6 +15,7 @@ import (
 type userKey string
 
 const userCtx userKey = "user"
+const userIDCtx userKey = "userID"
 
 type FollowUserPayload struct {
 	UserID int64 `json:"user_id" example:"1"`
@@ -51,31 +51,24 @@ func (app *application) getUserHandler(w http.ResponseWriter, r *http.Request) {
 //	@Tags			users
 //	@Accept			json
 //	@Produce		json
-//	@Param			userID	path		int					true	"User ID"
-//	@Param			body	body		FollowUserPayload	true	"Follow request"
-//	@Success		200		{object}	MessageEnvelope		"User followed"
-//	@Failure		400		{object}	ErrorEnvelope		"User not found"
-//	@Failure		404		{object}	ErrorEnvelope		"User payload missing"
-//	@Failure		409		{object}	ErrorEnvelope		"Status Conflict"
+//	@Param			userID	path		int				true	"User ID"
+//	@Success		200		{object}	MessageEnvelope	"User followed"
+//	@Failure		400		{object}	ErrorEnvelope	"User not found"
+//	@Failure		404		{object}	ErrorEnvelope	"User payload missing"
+//	@Failure		409		{object}	ErrorEnvelope	"Status Conflict"
 //	@Security		ApiKeyAuth
 //	@Router			/users/{userID}/follow [put]
 func (app *application) followUserHandler(w http.ResponseWriter, r *http.Request) {
 	followingUser := getUserFromCtx(r)
 
-	// Try read updated post data from request
-	var payload FollowUserPayload
-	if err := readJSON(w, r, &payload); err != nil {
-		app.badRequestResponse(w, r, err)
-		return
-	}
-
-	if err := Validate.Struct(payload); err != nil {
+	userId, err := getUserIDFromCtx(r)
+	if err != nil {
 		app.badRequestResponse(w, r, err)
 		return
 	}
 
 	// Check if the user that follow exists
-	_, err := app.store.Users.Get(r.Context(), payload.UserID)
+	_, err = app.store.Users.Get(r.Context(), userId)
 	if err != nil {
 		switch {
 		case errors.Is(err, store.ErrNotFound):
@@ -86,9 +79,9 @@ func (app *application) followUserHandler(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	err = app.store.Followers.FollowUser(r.Context(), followingUser.ID, payload.UserID)
+	err = app.store.Followers.FollowUser(r.Context(), followingUser.ID, userId)
 	if err != nil {
-		if err == store.ErrorConflict {
+		if errors.Is(err, store.ErrorConflict) {
 			app.conflictResponse(w, r, err)
 			return
 		}
@@ -139,42 +132,23 @@ func (app *application) getFollowersHandler(w http.ResponseWriter, r *http.Reque
 //	@Tags			users
 //	@Accept			json
 //	@Produce		json
-//	@Param			userID	path		int					true	"User ID"
-//	@Param			body	body		FollowUserPayload	true	"Unfollow request"
-//	@Success		200		{object}	MessageEnvelope		"User unfollowed"
-//	@Failure		400		{object}	ErrorEnvelope		"User not found"
-//	@Failure		404		{object}	ErrorEnvelope		"User payload missing"
-//	@Failure		409		{object}	ErrorEnvelope		"Status Conflict"
+//	@Param			userID	path		int				true	"User ID"
+//	@Success		200		{object}	MessageEnvelope	"User unfollowed"
+//	@Failure		400		{object}	ErrorEnvelope	"User not found"
+//	@Failure		404		{object}	ErrorEnvelope	"User payload missing"
+//	@Failure		409		{object}	ErrorEnvelope	"Status Conflict"
 //	@Security		ApiKeyAuth
 //	@Router			/users/{userID}/unfollow [put]
 func (app *application) unfollowUserHandler(w http.ResponseWriter, r *http.Request) {
-	user := getUserFromCtx(r)
+	followingUser := getUserFromCtx(r)
 
-	// Try read updated post data from request
-	var payload FollowUserPayload
-	if err := readJSON(w, r, &payload); err != nil {
-		app.badRequestResponse(w, r, err)
-		return
-	}
-
-	if err := Validate.Struct(payload); err != nil {
-		app.badRequestResponse(w, r, err)
-		return
-	}
-
-	// Check if the user that follow exists
-	_, err := app.store.Users.Get(r.Context(), payload.UserID)
+	userId, err := getUserIDFromCtx(r)
 	if err != nil {
-		switch {
-		case errors.Is(err, store.ErrNotFound):
-			app.notFoundResponse(w, r, err)
-		default:
-			app.internalServerError(w, r, err)
-		}
+		app.badRequestResponse(w, r, err)
 		return
 	}
 
-	err = app.store.Followers.UnfollowUser(r.Context(), user.ID, payload.UserID)
+	err = app.store.Followers.UnfollowUser(r.Context(), followingUser.ID, userId)
 	if err != nil {
 		app.internalServerError(w, r, err)
 		return
@@ -201,11 +175,9 @@ func (app *application) unfollowUserHandler(w http.ResponseWriter, r *http.Reque
 //	@Router			/users/activate/{token} [put]
 func (app *application) activateUserHandler(w http.ResponseWriter, r *http.Request) {
 	token := chi.URLParam(r, "token")
+	tokenHash := HashToken(token)
 
-	hash := sha256.Sum256([]byte(token))
-	hashToken := hex.EncodeToString(hash[:])
-
-	err := app.store.Users.ActivateAndClean(r.Context(), string(hashToken))
+	err := app.store.Users.ActivateAndClean(r.Context(), string(tokenHash))
 	if err != nil {
 		switch {
 		case errors.Is(err, store.ErrNotFound):
@@ -277,6 +249,13 @@ func (app *application) userContextMiddleware(next http.Handler) http.Handler {
 func getUserFromCtx(r *http.Request) *store.User {
 	user, _ := r.Context().Value(userCtx).(*store.User)
 	return user
+}
+
+func getUserIDFromCtx(r *http.Request) (int64, error) {
+	userID, _ := r.Context().Value(userCtx).(int64)
+	fmt.Println("userID: ", userID)
+
+	return strconv.ParseInt(fmt.Sprint(r.Context().Value(userIDCtx).(int64)), 10, 64)
 }
 
 func parseUserID(r *http.Request) (int64, error) {

@@ -11,9 +11,6 @@ definitions:
     properties:
       content:
         type: string
-      user_id:
-        example: 1
-        type: integer
     type: object
   main.CreatePostPayload:
     properties:
@@ -27,24 +24,14 @@ definitions:
       title:
         maxLength: 200
         type: string
-      user_id:
-        example: 1
-        type: integer
     required:
     - content
     - title
-    - user_id
     type: object
   main.ErrorEnvelope:
     properties:
       error:
         type: string
-    type: object
-  main.FollowUserPayload:
-    properties:
-      user_id:
-        example: 1
-        type: integer
     type: object
   main.FollowersEnvelope:
     properties:
@@ -52,6 +39,21 @@ definitions:
         items:
           $ref: '#/definitions/store.Follower'
         type: array
+    type: object
+  main.LoginUserPayload:
+    properties:
+      password:
+        default: password
+        maxLength: 72
+        minLength: 3
+        type: string
+      username:
+        default: user
+        maxLength: 100
+        type: string
+    required:
+    - password
+    - username
     type: object
   main.MessageEnvelope:
     properties:
@@ -195,6 +197,8 @@ definitions:
         type: integer
       is_active:
         type: boolean
+      role_id:
+        type: integer
       username:
         type: string
     type: object
@@ -210,7 +214,68 @@ info:
   termsOfService: http://swagger.io/terms/
   title: GopherSocial API
 paths:
-  /authentication/user:
+  /auth/login:
+    post:
+      consumes:
+      - application/json
+      description: Logins a user
+      parameters:
+      - description: User credentials
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/main.LoginUserPayload'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/main.RegisterUserResponseEnvelope'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/main.ErrorEnvelope'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/main.ErrorEnvelope'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/main.ErrorEnvelope'
+      summary: Logins a user
+      tags:
+      - authentication
+  /auth/refresh:
+    post:
+      consumes:
+      - application/json
+      description: Refreshes Access Token
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/main.MessageEnvelope'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/main.ErrorEnvelope'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/main.ErrorEnvelope'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/main.ErrorEnvelope'
+      summary: Refreshes Access Token
+      tags:
+      - authentication
+  /auth/register:
     post:
       consumes:
       - application/json
@@ -552,12 +617,6 @@ paths:
         name: userID
         required: true
         type: integer
-      - description: Follow request
-        in: body
-        name: body
-        required: true
-        schema:
-          $ref: '#/definitions/main.FollowUserPayload'
       produces:
       - application/json
       responses:
@@ -628,12 +687,6 @@ paths:
         name: userID
         required: true
         type: integer
-      - description: Unfollow request
-        in: body
-        name: body
-        required: true
-        schema:
-          $ref: '#/definitions/main.FollowUserPayload'
       produces:
       - application/json
       responses:

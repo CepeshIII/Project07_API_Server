@@ -51,7 +51,6 @@ type MessageEnvelope struct {
 }
 
 type CreateCommentPayload struct {
-	UserID  int64  `json:"user_id" example:"1"`
 	Content string `json:"content"`
 }
 
