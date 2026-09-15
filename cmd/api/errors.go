@@ -7,8 +7,9 @@ import (
 )
 
 var (
-	errTargetUserMissing = errors.New("target user missing from context")
-	errAuthUserMissing   = errors.New("authenticated user missing from context")
+	errTargetUserMissing         = errors.New("target user missing from context")
+	errAuthUserMissing           = errors.New("authenticated user missing from context")
+	errInvalidUsernameOrPassword = errors.New("invalid Username or password")
 )
 
 func (app *application) internalServerError(w http.ResponseWriter, r *http.Request, err error) {

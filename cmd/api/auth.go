@@ -184,7 +184,7 @@ func (app *application) loginUserHandler(w http.ResponseWriter, r *http.Request)
 	if err != nil {
 		if errors.Is(err, store.ErrNotFound) {
 			app.clearSessionCookie(w)
-			app.statusUnauthorizedError(w, r, errors.New("Invalid Username or password"))
+			app.statusUnauthorizedError(w, r, errInvalidUsernameOrPassword)
 			return
 		}
 
@@ -194,7 +194,7 @@ func (app *application) loginUserHandler(w http.ResponseWriter, r *http.Request)
 
 	// check the user password
 	if !user.Password.CheckHash(payload.Password) {
-		app.statusUnauthorizedError(w, r, errors.New("Invalid Username or password"))
+		app.statusUnauthorizedError(w, r, errInvalidUsernameOrPassword)
 		return
 	}
 
@@ -261,7 +261,7 @@ func (app *application) refreshAccessTokenHandler(w http.ResponseWriter, r *http
 	cookie, err := r.Cookie(sessionCookieName)
 	if err != nil {
 		if errors.Is(err, http.ErrNoCookie) {
-			app.statusUnauthorizedError(w, r, errors.New("Session token has expired. Please refresh your session."))
+			app.statusUnauthorizedError(w, r, errors.New("session token has expired. Please refresh your session."))
 			return
 		}
 		app.badRequestResponse(w, r, err)
@@ -278,7 +278,7 @@ func (app *application) refreshAccessTokenHandler(w http.ResponseWriter, r *http
 	if err := app.store.Sessions.GetSessionByTokenHash(r.Context(), &session); err != nil {
 		if errors.Is(err, store.ErrNotFound) {
 			app.clearSessionCookie(w)
-			app.statusUnauthorizedError(w, r, errors.New("Session not found or invalid. Please log in again."))
+			app.statusUnauthorizedError(w, r, errors.New("session not found or invalid. Please log in again."))
 			return
 		}
 		app.internalServerError(w, r, err)
@@ -287,13 +287,13 @@ func (app *application) refreshAccessTokenHandler(w http.ResponseWriter, r *http
 
 	if session.IsRevoke {
 		app.clearSessionCookie(w)
-		app.statusUnauthorizedError(w, r, errors.New("Session has been revoked. Please log in again."))
+		app.statusUnauthorizedError(w, r, errors.New("session has been revoked. Please log in again."))
 		return
 	}
 
 	if time.Now().After(session.ExpiresAt) {
 		app.clearSessionCookie(w)
-		app.statusUnauthorizedError(w, r, errors.New("Session has expired. Please log in again."))
+		app.statusUnauthorizedError(w, r, errors.New("session has expired. Please log in again."))
 		return
 	}
 
