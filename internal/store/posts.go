@@ -4,19 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"time"
 
 	"github.com/lib/pq"
-)
-
-var (
-	ErrNotFound            = errors.New("record not found")
-	ErrConflict            = errors.New("resource conflict: version mismatch")
-	ErrorConflict          = errors.New("resource conflict: already exists")
-	ErrorDuplicateEmail    = errors.New("user with this email already exists")
-	ErrorDuplicateUsername = errors.New("user with this username already exists")
-	ErrorInvalidToken      = errors.New("invalid or expired token")
-	QueryTimeoutDuration   = 5 * time.Second
 )
 
 type PostWithComments struct {

@@ -16,6 +16,8 @@ type SessionData struct {
 	UserID    int64
 
 	TokenHash string
+	Token     string `json:"-"`
+
 	IPAdress  string
 	UserAgent string
 	IsRevoke  bool

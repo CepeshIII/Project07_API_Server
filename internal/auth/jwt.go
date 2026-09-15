@@ -2,9 +2,13 @@ package auth
 
 import (
 	"errors"
-	"fmt"
 
 	"github.com/golang-jwt/jwt/v5"
+)
+
+var (
+	ErrInvalidToken            = errors.New("invalid token")
+	ErrUnexpectedSigningMethod = errors.New("unexpected signing method")
 )
 
 type JWTAuthenticator struct {
@@ -40,10 +44,11 @@ func (a *JWTAuthenticator) ValidateToken(tokenString string) (*CustomClaims, err
 		claims,
 		func(token *jwt.Token) (any, error) {
 			if token.Method != jwt.SigningMethodHS256 {
-				return nil, fmt.Errorf(
-					"unexpected signing method: %v",
-					token.Header["alg"],
-				)
+				return nil, errors.Join(ErrUnexpectedSigningMethod)
+				// return nil, fmt.Errorf(
+				// 	"unexpected signing method: %v",
+				// 	token.Header["alg"],
+				// )
 			}
 
 			return a.secret, nil
@@ -59,7 +64,7 @@ func (a *JWTAuthenticator) ValidateToken(tokenString string) (*CustomClaims, err
 	}
 
 	if !token.Valid {
-		return nil, errors.New("invalid token")
+		return nil, ErrInvalidToken
 	}
 
 	return claims, nil

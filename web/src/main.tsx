@@ -4,6 +4,7 @@ import './index.css'
 import App from './App.tsx'
 import { createBrowserRouter, Router, RouterProvider } from 'react-router-dom'
 import { ConfirmationPage } from './ConfirmationPage.tsx'
+import { CreatePostForm } from './CreatePostForm.tsx'
 
 const router = createBrowserRouter([
   {
@@ -13,6 +14,10 @@ const router = createBrowserRouter([
   {
     path: "/confirm/:token",
     element: <ConfirmationPage />
+  },
+  {
+    path: "/test",
+    element: <CreatePostForm />
   }
 ])
 

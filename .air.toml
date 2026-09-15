@@ -38,8 +38,10 @@ tmp_dir = "bin"
     cmd = "go build -o   ./bin/main.exe ./cmd/api/"
     entrypoint = ["bin\\main.exe"]
     full_bin = ""
-    post_cmd = []
-    pre_cmd = ["make gen-docs"]
+    post_cmd = ["caddy stop"]
+    pre_cmd = ["caddy fmt --overwrite",
+              "caddy start", 
+              "make gen-docs"]
 
 [color]
   app = ""

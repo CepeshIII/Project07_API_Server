@@ -593,7 +593,7 @@ paths:
       produces:
       - application/json
       responses:
-        "204":
+        "200":
           description: User deleted
           schema:
             $ref: '#/definitions/main.MessageEnvelope'
@@ -620,7 +620,7 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        "201":
           description: User followed
           schema:
             $ref: '#/definitions/main.MessageEnvelope'
@@ -690,7 +690,7 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        "201":
           description: User unfollowed
           schema:
             $ref: '#/definitions/main.MessageEnvelope'
@@ -723,7 +723,7 @@ paths:
       produces:
       - application/json
       responses:
-        "204":
+        "200":
           description: User activated
           schema:
             $ref: '#/definitions/main.MessageEnvelope'
