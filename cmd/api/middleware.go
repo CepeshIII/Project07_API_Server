@@ -62,7 +62,7 @@ func (app *application) AuthMiddleware() func(http.Handler) http.Handler {
 			if err != nil {
 				if errors.Is(err, store.ErrNotFound) {
 					app.clearSessionCookie(w)
-					app.unauthorizedBasicErrorResponse(w, r, errors.New("Invalid Username or password"))
+					app.unauthorizedBasicErrorResponse(w, r, errInvalidUsernameOrPassword)
 					return
 				}
 
@@ -72,7 +72,7 @@ func (app *application) AuthMiddleware() func(http.Handler) http.Handler {
 
 			// check the user password
 			if !user.Password.CheckHash(payload.Password) {
-				app.unauthorizedBasicErrorResponse(w, r, errors.New("Invalid Username or password"))
+				app.unauthorizedBasicErrorResponse(w, r, errInvalidUsernameOrPassword)
 				return
 			}
 
@@ -290,7 +290,7 @@ func (app *application) accessTokenMiddleware(next http.Handler) http.Handler {
 		cookie, err := r.Cookie(accessCookieName)
 		if err != nil {
 			if errors.Is(err, http.ErrNoCookie) {
-				app.statusUnauthorizedError(w, r, errors.New("Access token has expired. Please refresh your session."))
+				app.statusUnauthorizedError(w, r, errors.New("access token has expired"))
 				return
 			}
 
