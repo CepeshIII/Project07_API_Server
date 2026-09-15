@@ -8,29 +8,29 @@ on:
 
 jobs:
   audit:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
+      - uses: actions/checkout@v2
 
-    - name: Set up Go
-      uses: actions/setup-go@v2
-      with:
-        go-version: 1.26.3
+      - name: Set up Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: 1.22
 
-    - name: Verify Dependencies
-      run: go mod verify
+      - name: Verify Depedencies
+        run: go mod verify
 
-    - name: Build
-      run: go build -v ./...
+      - name: Build
+        run: go build -v ./...
 
-    - name: Run go vet
-      run: go vet ./...
+      - name: Run go vet
+        run: go vet ./...
 
-    - name: Install staticcheck
-      run: go install honnef.co/go/tools/cmd/staticcheck@latest
+      - name: Install staticcheck
+        run: go install honnef.co/go/tools/cmd/staticcheck@latest
 
-    - name: Run staticcheck
-      run: staticcheck ./...
+      - name: Run staticcheck
+        run: staticcheck ./...
 
-    - name: Run Tests
-      run: go test -race /...
+      - name: Run Tests
+        run: go test -race ./...
