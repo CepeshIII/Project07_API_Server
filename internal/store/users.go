@@ -16,7 +16,7 @@ type User struct {
 	Password  password `json:"-"`
 	CreatedAt string   `json:"created_at"`
 	IsActive  bool     `json:"is_active"`
-	RoleID    int32    `json:"role_id"`
+	RoleID    int64    `json:"role_id"`
 }
 
 type password struct {
@@ -53,25 +53,33 @@ type UserStore struct {
 	db *sql.DB
 }
 
-func (s *UserStore) create(ctx context.Context, tx *sql.Tx, user *User) error {
+func (s *UserStore) create(ctx context.Context, tx *sql.Tx, userWithRole *UserWithRole) error {
 	query := `
 	INSERT INTO users (username, email, password, role_id)
-	VALUES ($1, $2, $3, $4) RETURNING id, created_at
+	SELECT $1, $2, $3, r.id
+	FROM roles r
+	WHERE r.name = $4
+	RETURNING id, created_at, role_id
 	`
 
 	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
 	defer cancel()
 
+	if userWithRole.Role.Name == "" {
+		userWithRole.Role.Name = "user"
+	}
+
 	err := tx.QueryRowContext(
 		ctx,
 		query,
-		user.Username,
-		user.Email,
-		user.Password.hash,
-		user.RoleID,
+		userWithRole.Username,
+		userWithRole.Email,
+		userWithRole.Password.hash,
+		userWithRole.Role.Name,
 	).Scan(
-		&user.ID,
-		&user.CreatedAt,
+		&userWithRole.ID,
+		&userWithRole.CreatedAt,
+		&userWithRole.RoleID,
 	)
 
 	if err != nil {
@@ -90,23 +98,23 @@ func (s *UserStore) create(ctx context.Context, tx *sql.Tx, user *User) error {
 }
 
 func (s *UserStore) Get(ctx context.Context, userID int64) (*User, error) {
-	user := User{}
-
-	query := `
-	SELECT id, username, email, created_at, is_active, role_id
-	FROM users
-	WHERE id = $1 
-	`
-
 	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
 	defer cancel()
 
+	user := User{}
+
+	query := `
+	SELECT id, username, email, created_at, is_active, password, role_id
+	FROM users
+	WHERE id = $1 
+	`
 	err := s.db.QueryRowContext(ctx, query, userID).Scan(
 		&user.ID,
 		&user.Username,
 		&user.Email,
 		&user.CreatedAt,
 		&user.IsActive,
+		&user.Password.hash,
 		&user.RoleID,
 	)
 
@@ -122,7 +130,7 @@ func (s *UserStore) Get(ctx context.Context, userID int64) (*User, error) {
 	return &user, nil
 }
 
-func (s *UserStore) CreateAndInvite(ctx context.Context, user *User, token string, exp time.Duration) error {
+func (s *UserStore) CreateAndInvite(ctx context.Context, user *UserWithRole, token string, exp time.Duration) error {
 	return withTx(s.db, ctx, func(tx *sql.Tx) error {
 		if err := s.create(ctx, tx, user); err != nil {
 			return err
@@ -167,7 +175,6 @@ func (s *UserStore) getUserIdFromInvitationAndCleanIt(ctx context.Context, tx *s
 	).Scan(&userID)
 
 	if err != nil {
-
 		switch {
 		case errors.Is(err, sql.ErrNoRows):
 			return userID, ErrorInvalidToken
@@ -243,7 +250,12 @@ func (s *UserStore) DeleteUser(ctx context.Context, userID int64) error {
 	)
 
 	if err != nil {
-		return err
+		switch {
+		case errors.Is(err, sql.ErrNoRows):
+			return ErrNotFound
+		default:
+			return err
+		}
 	}
 
 	return nil
@@ -308,7 +320,7 @@ func (s *UserStore) GetByEmail(ctx context.Context, email string) (*User, error)
 	user := &User{}
 
 	query := `
-	SELECT id, username, email, created_at, is_active, role_id
+	SELECT id, username, email, created_at, is_active, password, role_id
 	FROM users
 	WHERE email = $1 AND is_active = true
 	`
@@ -319,6 +331,7 @@ func (s *UserStore) GetByEmail(ctx context.Context, email string) (*User, error)
 		&user.Email,
 		&user.CreatedAt,
 		&user.IsActive,
+		&user.Password.hash,
 		&user.RoleID,
 	)
 
@@ -337,4 +350,52 @@ func (s *UserStore) DeleteUserAndInvitation(ctx context.Context, userID int64) e
 	err := errors.Join(s.DeleteUser(ctx, userID), s.DeleteInvitation(ctx, userID))
 
 	return err
+}
+
+func (s *UserStore) GetUserWithRole(ctx context.Context, userID int64) (*UserWithRole, error) {
+	userWithRole := UserWithRole{}
+
+	query := `
+		SELECT
+		    u.id,
+		    u.username,
+		    u.email,
+		    u.created_at,
+		    u.is_active,
+			u.password,
+
+		    r.name,
+		    r.description,
+		    r.level
+		FROM users u
+		JOIN roles r ON u.role_id = r.id
+		WHERE u.id = $1
+		  AND u.is_active = true
+	`
+
+	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
+	defer cancel()
+
+	err := s.db.QueryRowContext(ctx, query, userID).Scan(
+		&userWithRole.ID,
+		&userWithRole.Username,
+		&userWithRole.Email,
+		&userWithRole.CreatedAt,
+		&userWithRole.IsActive,
+		&userWithRole.Password.hash,
+		&userWithRole.Role.Name,
+		&userWithRole.Role.Description,
+		&userWithRole.Role.Level,
+	)
+
+	if err != nil {
+		switch {
+		case errors.Is(err, sql.ErrNoRows):
+			return nil, ErrNotFound
+		default:
+			return nil, err
+		}
+	}
+
+	return &userWithRole, nil
 }

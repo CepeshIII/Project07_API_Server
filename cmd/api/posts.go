@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"errors"
 	"net/http"
 	"strconv"
@@ -11,13 +10,15 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
-type postKey string
-
-const postCtx postKey = "post"
-
 type CreatePostPayload struct {
 	Title   string   `json:"title" validate:"required,max=200"`
 	Content string   `json:"content" validate:"required,max=1000"`
+	Tags    []string `json:"tags"`
+}
+
+type UpdatePostPayload struct {
+	Title   string   `json:"title" validate:"omitempty,max=200"`
+	Content string   `json:"content" validate:"omitempty,max=1000"`
 	Tags    []string `json:"tags"`
 }
 
@@ -36,7 +37,7 @@ type CreatePostPayload struct {
 //	@Security		ApiKeyAuth
 //	@Router			/posts/ [post]
 func (app *application) createPostHandler(w http.ResponseWriter, r *http.Request) {
-	userId, err := getUserIDFromCtx(r)
+	userId, err := getAuthUserIDFromCtx(r)
 	if err != nil {
 		app.badRequestResponse(w, r, err)
 		return
@@ -167,7 +168,7 @@ func (app *application) getPostCommentsHandler(w http.ResponseWriter, r *http.Re
 //	@Security		ApiKeyAuth
 //	@Router			/posts/{id}/comments [post]
 func (app *application) createCommentHandler(w http.ResponseWriter, r *http.Request) {
-	userId, err := getUserIDFromCtx(r)
+	userId, err := getAuthUserIDFromCtx(r)
 	if err != nil {
 		app.badRequestResponse(w, r, err)
 		return
@@ -206,12 +207,6 @@ func (app *application) createCommentHandler(w http.ResponseWriter, r *http.Requ
 	}
 }
 
-type UpdatePostPayload struct {
-	Title   string   `json:"title" validate:"omitempty,max=200"`
-	Content string   `json:"content" validate:"omitempty,max=1000"`
-	Tags    []string `json:"tags"`
-}
-
 // UpdatePost godoc
 //
 //	@Summary		Update a post
@@ -228,19 +223,8 @@ type UpdatePostPayload struct {
 //	@Security		ApiKeyAuth
 //	@Router			/posts/{id} [patch]
 func (app *application) updatePostHandler(w http.ResponseWriter, r *http.Request) {
-	userId, err := getUserIDFromCtx(r)
-	if err != nil {
-		app.badRequestResponse(w, r, err)
-		return
-	}
-
 	// Get post from database
 	post := getPostFromCtx(r)
-
-	if post.UserID != userId {
-		app.statusForbiddenResponse(w, r, errors.New("You do not have permission to edit this post"))
-		return
-	}
 
 	// Parse post ID
 	id, err := parsePostID(r)
@@ -304,19 +288,8 @@ func (app *application) updatePostHandler(w http.ResponseWriter, r *http.Request
 //	@Security		ApiKeyAuth
 //	@Router			/posts/{id} [delete]
 func (app *application) deletePostHandler(w http.ResponseWriter, r *http.Request) {
-	userId, err := getUserIDFromCtx(r)
-	if err != nil {
-		app.badRequestResponse(w, r, err)
-		return
-	}
-
 	// Get post from database
 	post := getPostFromCtx(r)
-
-	if post.UserID != userId {
-		app.statusForbiddenResponse(w, r, errors.New("You do not have permission to delete this post"))
-		return
-	}
 
 	ctx := r.Context()
 	// Try delete comments for post from database
@@ -346,36 +319,6 @@ func (app *application) deletePostHandler(w http.ResponseWriter, r *http.Request
 		app.internalServerError(w, r, err)
 		return
 	}
-}
-
-func (app *application) postContextMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		id, err := parsePostID(r)
-		if err != nil {
-			app.internalServerError(w, r, err)
-			return
-		}
-
-		ctx := r.Context()
-		post, err := app.store.Posts.GetByID(ctx, id)
-		if err != nil {
-			switch {
-			case errors.Is(err, store.ErrNotFound):
-				app.notFoundResponse(w, r, err)
-			default:
-				app.internalServerError(w, r, err)
-			}
-			return
-		}
-
-		ctx = context.WithValue(ctx, postCtx, post)
-		next.ServeHTTP(w, r.WithContext(ctx))
-	})
-}
-
-func getPostFromCtx(r *http.Request) *store.Post {
-	post, _ := r.Context().Value(postCtx).(*store.Post)
-	return post
 }
 
 func parsePostID(r *http.Request) (int64, error) {

@@ -3,7 +3,18 @@ package store
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"time"
+)
+
+var (
+	ErrNotFound            = errors.New("record not found")
+	ErrConflict            = errors.New("resource conflict: version mismatch")
+	ErrorConflict          = errors.New("resource conflict: already exists")
+	ErrorDuplicateEmail    = errors.New("user with this email already exists")
+	ErrorDuplicateUsername = errors.New("user with this username already exists")
+	ErrorInvalidToken      = errors.New("invalid or expired token")
+	QueryTimeoutDuration   = 5 * time.Second
 )
 
 type Storage struct {
@@ -16,15 +27,16 @@ type Storage struct {
 	}
 
 	Users interface {
-		create(context.Context, *sql.Tx, *User) error
-		createUserInvitation(context.Context, *sql.Tx, int64, string, time.Duration) error
-		CreateAndInvite(context.Context, *User, string, time.Duration) error
+		// create(context.Context, *sql.Tx, *UserWithRole) error
+		// createUserInvitation(context.Context, *sql.Tx, int64, string, time.Duration) error
+		CreateAndInvite(context.Context, *UserWithRole, string, time.Duration) error
 
-		Get(context.Context, int64) (*User, error)
 		ActivateAndClean(context.Context, string) error
 
+		Get(context.Context, int64) (*User, error)
 		GetByUsername(context.Context, string) (*User, error)
 		GetByEmail(context.Context, string) (*User, error)
+		GetUserWithRole(context.Context, int64) (*UserWithRole, error)
 
 		DeleteInvitation(context.Context, int64) error
 		DeleteUser(context.Context, int64) error
@@ -39,14 +51,19 @@ type Storage struct {
 	}
 
 	Followers interface {
-		FollowUser(context.Context, int64, int64) error
-		UnfollowUser(context.Context, int64, int64) error
+		FollowUser(ctx context.Context, followerID, followeeID int64) error
+		UnfollowUser(ctx context.Context, followerID, followeeID int64) error
 		GetFollowers(context.Context, int64) ([]Follower, error)
 	}
 
 	Sessions interface {
 		CreateSession(context.Context, *SessionData) error
 		GetSessionByTokenHash(context.Context, *SessionData) error
+	}
+
+	Roles interface {
+		GetRoleByName(context.Context, string) (*Role, error)
+		GetRoleByID(context.Context, int64) (*Role, error)
 	}
 }
 
@@ -57,6 +74,7 @@ func NewStorage(db *sql.DB) Storage {
 		Comments:  &CommentStore{db: db},
 		Followers: &FollowersStore{db: db},
 		Sessions:  &SessionsStore{db: db},
+		Roles:     &RolesStore{db: db},
 	}
 }
 

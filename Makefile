@@ -38,3 +38,14 @@ HOST_PORT := $(shell yq '.services.db.ports[0]' docker-compose.yml | cut -d':' -
 fix-dirty:
 	@PGPASSWORD="$(DB_PASS)" psql -h localhost -p $(HOST_PORT) -U $(DB_USER) -d $(DB_NAME) \
 		-c "UPDATE schema_migrations SET dirty = false;"
+
+
+.PHONY: test
+test:
+	@go test -v ./cmd/api/
+
+
+	
+.PHONY: start-vite
+start-vite:
+	@npm --prefix web run dev

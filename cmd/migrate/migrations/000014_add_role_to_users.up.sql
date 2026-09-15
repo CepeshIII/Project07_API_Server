@@ -1,5 +1,5 @@
 ALTER TABLE IF EXISTS users
-ADD COLUMN IF NOT EXISTS role_id int REFERENCES roles(id) DEFAULT 1;
+ADD COLUMN IF NOT EXISTS role_id BIGINT REFERENCES roles(id) DEFAULT 1;
 UPDATE users
 SET role_id = (
         SELECT id

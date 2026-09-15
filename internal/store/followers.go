@@ -12,12 +12,13 @@ type FollowersStore struct {
 }
 
 type Follower struct {
-	UserId     int64  `json:"user_id"`
-	FollowerId int64  `json:"follower_id"`
+	UserID     int64  `json:"user_id"`
+	FollowerID int64  `json:"follower_id"`
 	CreatedAt  string `json:"created_at"`
 }
 
-func (s *FollowersStore) FollowUser(ctx context.Context, userID, followerID int64) error {
+// FollowUser creates a relationship where followerID follows followeeID (userID).
+func (s *FollowersStore) FollowUser(ctx context.Context, followerID, followeeID int64) error {
 	query := `
 		INSERT INTO followers (user_id, follower_id)
 		VALUES ($1, $2)
@@ -28,7 +29,7 @@ func (s *FollowersStore) FollowUser(ctx context.Context, userID, followerID int6
 	res, err := s.db.ExecContext(
 		ctx,
 		query,
-		userID,
+		followeeID,
 		followerID,
 	)
 
@@ -52,7 +53,7 @@ func (s *FollowersStore) FollowUser(ctx context.Context, userID, followerID int6
 	return nil
 }
 
-func (s *FollowersStore) UnfollowUser(ctx context.Context, userID, followerID int64) error {
+func (s *FollowersStore) UnfollowUser(ctx context.Context, followerID, followeeID int64) error {
 
 	query := `
 	DELETE FROM followers
@@ -64,7 +65,7 @@ func (s *FollowersStore) UnfollowUser(ctx context.Context, userID, followerID in
 	res, err := s.db.ExecContext(
 		ctx,
 		query,
-		userID,
+		followeeID,
 		followerID,
 	)
 
@@ -107,7 +108,7 @@ func (s *FollowersStore) GetFollowers(ctx context.Context, userID int64) ([]Foll
 	var followers []Follower
 	for rows.Next() {
 		var follower Follower
-		err := rows.Scan(&follower.UserId, &follower.FollowerId, &follower.CreatedAt)
+		err := rows.Scan(&follower.UserID, &follower.FollowerID, &follower.CreatedAt)
 		if err != nil {
 			return nil, err
 		}

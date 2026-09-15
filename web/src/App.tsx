@@ -4,7 +4,7 @@ import viteLogo from './assets/vite.svg'
 import heroImg from './assets/hero.png'
 import './App.css'
 
-export const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8080/v1"
+export const API_URL = import.meta.env.VITE_API_URL || "http://localhost:7777/api/v1"
 
 function App() {
 

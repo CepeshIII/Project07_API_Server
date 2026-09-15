@@ -1,8 +1,14 @@
 package main
 
 import (
+	"context"
+	"errors"
+	"expvar"
 	"fmt"
 	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -12,19 +18,22 @@ import (
 	"github.com/CepeshIII/Project07_API_Server/internal/auth"
 	"github.com/CepeshIII/Project07_API_Server/internal/env"
 	"github.com/CepeshIII/Project07_API_Server/internal/mailer"
+	"github.com/CepeshIII/Project07_API_Server/internal/ratelimiter"
 	"github.com/CepeshIII/Project07_API_Server/internal/store"
-	"github.com/go-chi/cors"
+	"github.com/CepeshIII/Project07_API_Server/internal/store/cache"
 	httpSwagger "github.com/swaggo/http-swagger" // http-swagger middleware
 
 	"go.uber.org/zap"
 )
 
 type application struct {
-	config config
-	store  store.Storage
-	logger *zap.SugaredLogger
-	mailer mailer.Client
-	auth   auth.Authenticator
+	config       config
+	store        store.Storage
+	logger       *zap.SugaredLogger
+	mailer       mailer.Client
+	auth         auth.Authenticator
+	cacheStorage cache.Storage
+	rateLimiter  ratelimiter.Limiter
 }
 
 type mailConfig struct {
@@ -57,6 +66,15 @@ type config struct {
 	frontendURL string
 	loggerEnv   string
 	auth        authConfig
+	redisCfg    redisConfig
+	rateLimiter ratelimiter.Config
+}
+
+type redisConfig struct {
+	addr    string
+	pw      string
+	db      int
+	enabled bool
 }
 
 type authConfig struct {
@@ -103,21 +121,13 @@ func DefaultDBConfig() dbConfig {
 func (app *application) mount() http.Handler {
 	r := chi.NewRouter()
 
-	// MUST BE FIRST: Handle CORS Preflights (OPTIONS)
-	r.Use(cors.Handler(cors.Options{
-		// AllowedOrigins:   []string{"https://*", "http://*"}, // Add your frontend URL
-		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token"},
-		ExposedHeaders:   []string{"Link"},
-		AllowCredentials: true,
-		MaxAge:           300, // Maximum cache duration for preflight requests
-	}))
-
 	// A good base middleware stack
 	r.Use(middleware.RequestID)
 	r.Use(middleware.ClientIPFromRemoteAddr) // pick one ClientIPFrom* based on your infra, see below
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
+
+	r.Use(app.rateLimiterMiddleWare)
 
 	// Set a timeout value on the request context (ctx), that will signal
 	// through ctx.Done() that the request has timed out and further
@@ -128,7 +138,8 @@ func (app *application) mount() http.Handler {
 
 	r.Route("/v1", func(r chi.Router) {
 
-		r.With(app.AuthMiddleware()).Get("/health", app.healthCheckHandler)
+		r.Get("/health", app.healthCheckHandler)
+		r.With(app.basicAuthMiddleware()).Get("/metrics", expvar.Handler().ServeHTTP)
 
 		r.Get("/swagger/*", httpSwagger.Handler(
 			httpSwagger.URL(docsURL),
@@ -137,7 +148,7 @@ func (app *application) mount() http.Handler {
 		r.Route("/posts", func(r chi.Router) {
 
 			r.Group(func(r chi.Router) {
-				r.Use(app.acssesTokenMiddleware)
+				r.Use(app.accessTokenMiddleware)
 
 				r.Post("/", app.createPostHandler)
 			})
@@ -149,11 +160,11 @@ func (app *application) mount() http.Handler {
 				r.Get("/comments", app.getPostCommentsHandler)
 
 				r.Group(func(r chi.Router) {
-					r.Use(app.acssesTokenMiddleware)
+					r.Use(app.accessTokenMiddleware)
 
-					r.Patch("/", app.updatePostHandler)
+					r.Patch("/", app.checkPostOwnership("moderator", app.updatePostHandler))
+					r.Delete("/", app.checkPostOwnership("admin", app.deletePostHandler))
 					r.Post("/comments", app.createCommentHandler)
-					r.Delete("/", app.deletePostHandler)
 				})
 			})
 
@@ -175,11 +186,11 @@ func (app *application) mount() http.Handler {
 				r.Get("/followers", app.getFollowersHandler)
 
 				r.Group(func(r chi.Router) {
-					r.Use(app.acssesTokenMiddleware)
+					r.Use(app.accessTokenMiddleware)
 
 					r.Put("/follow", app.followUserHandler)
 					r.Put("/unfollow", app.unfollowUserHandler)
-					r.Delete("/", app.deleteUserHandler)
+					r.Delete("/", app.checkUserOwnership("admin", app.deleteUserHandler))
 				})
 			})
 
@@ -209,10 +220,33 @@ func (app *application) run(mux http.Handler) error {
 		ReadTimeout:  time.Second * 10,
 		IdleTimeout:  time.Minute,
 	}
+	shutdown := make(chan error)
+
+	go func() {
+		quit := make(chan os.Signal, 1)
+
+		signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+		s := <-quit
+
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+		defer cancel()
+
+		app.logger.Infow("Signal Caught", "signal", s.String())
+
+		shutdown <- srv.Shutdown(ctx)
+	}()
 
 	app.logger.Info(fmt.Sprintf("Server has start at %s\n", app.config.addr))
 
 	err := srv.ListenAndServe()
+	if errors.Is(err, http.ErrServerClosed) {
+		return err
+	}
+
+	err = <-shutdown
+	if err != nil {
+		return err
+	}
 
 	app.logger.Info(fmt.Sprintf("Server has finish at %s\n", app.config.addr))
 

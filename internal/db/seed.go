@@ -158,7 +158,7 @@ func Seed(storage *store.Storage, db *sql.DB) error {
 	}
 
 	for _, follower := range followers {
-		err := storage.Followers.FollowUser(ctx, follower.UserId, follower.FollowerId)
+		err := storage.Followers.FollowUser(ctx, follower.UserID, follower.FollowerID)
 		if err != nil {
 			return fmt.Errorf("failed to create follower: %w", err)
 		}
@@ -168,13 +168,18 @@ func Seed(storage *store.Storage, db *sql.DB) error {
 	return nil
 }
 
-func generateUsers(count int) []*store.User {
-	users := make([]*store.User, 0, count)
+func generateUsers(count int) []*store.UserWithRole {
+	users := make([]*store.UserWithRole, 0, count)
 	for i := 1; i <= count; i++ {
-		user := &store.User{
-			// ID:       int64(i),
-			Username: usernames[i%len(usernames)] + fmt.Sprintf("%d", i),
-			Email:    usernames[i%len(usernames)] + fmt.Sprintf("%d", i) + "@example.com",
+		user := &store.UserWithRole{
+			User: store.User{
+				// ID:       int64(i),
+				Username: usernames[i%len(usernames)] + fmt.Sprintf("%d", i),
+				Email:    usernames[i%len(usernames)] + fmt.Sprintf("%d", i) + "@example.com",
+			},
+			Role: store.Role{
+				Name: "user",
+			},
 		}
 		user.Password.Set("password") // Set a default password for all users
 		user.RoleID = 1
@@ -239,8 +244,8 @@ func generateFollowers(usersCount int, minFollowerCount int, maxFollowerCount in
 				usersFollowersID[newFollowersID] = 1
 				currentFollowersCount++
 				followers = append(followers, &store.Follower{
-					UserId:     int64(userID),
-					FollowerId: int64(newFollowersID),
+					UserID:     int64(userID),
+					FollowerID: int64(newFollowersID),
 				})
 			}
 		}

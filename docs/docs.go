@@ -564,7 +564,7 @@ const docTemplate = `{
                     }
                 ],
                 "responses": {
-                    "204": {
+                    "200": {
                         "description": "User activated",
                         "schema": {
                             "$ref": "#/definitions/main.MessageEnvelope"
@@ -665,7 +665,7 @@ const docTemplate = `{
                     }
                 ],
                 "responses": {
-                    "204": {
+                    "200": {
                         "description": "User deleted",
                         "schema": {
                             "$ref": "#/definitions/main.MessageEnvelope"
@@ -708,7 +708,7 @@ const docTemplate = `{
                     }
                 ],
                 "responses": {
-                    "200": {
+                    "201": {
                         "description": "User followed",
                         "schema": {
                             "$ref": "#/definitions/main.MessageEnvelope"
@@ -818,7 +818,7 @@ const docTemplate = `{
                     }
                 ],
                 "responses": {
-                    "200": {
+                    "201": {
                         "description": "User unfollowed",
                         "schema": {
                             "$ref": "#/definitions/main.MessageEnvelope"
