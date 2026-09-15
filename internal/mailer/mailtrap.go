@@ -3,17 +3,14 @@ package mailer
 import (
 	"context"
 	"fmt"
-	"text/template"
 
 	"github.com/mailtrap/mailtrap-go"
 )
 
 type MailtrapMailer struct {
-	fromEmail        string
-	apiKey           string
-	client           *mailtrap.Client
-	templates        map[string]*template.Template // Pre-compiled templates!
-	compiledTemplate CompiledTemplate
+	fromEmail string
+	apiKey    string
+	client    *mailtrap.Client
 }
 
 func NewMailtrap(apiKey, fromEmail string, isSandbox bool) (*MailtrapMailer, error) {
