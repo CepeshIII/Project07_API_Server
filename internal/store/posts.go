@@ -147,6 +147,9 @@ func (s *PostStore) Delete(ctx context.Context, postID int64) error {
 	defer cancel()
 
 	res, err := s.db.ExecContext(ctx, query, postID)
+	if err != nil {
+		return err
+	}
 
 	rows, err := res.RowsAffected()
 	if err != nil {

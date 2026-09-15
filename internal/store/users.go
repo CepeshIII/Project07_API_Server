@@ -38,11 +38,8 @@ func (p *password) Set(text string) error {
 
 func (p *password) CheckHash(text string) bool {
 	err := bcrypt.CompareHashAndPassword(p.hash, []byte(text))
-	if err != nil {
-		return false
-	}
 
-	return true
+	return err == nil
 }
 
 func (p *password) generateHashFromPassword(text string) ([]byte, error) {
