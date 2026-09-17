@@ -49,3 +49,11 @@ test:
 .PHONY: start-vite
 start-vite:
 	@npm --prefix web run dev
+
+
+.PHONY: docker-start
+docker-start:
+	@dockerDesktop.cmd
+	@echo Waiting for Docker engine to initialize...
+	@powershell -Command "Start-Sleep -Seconds 3"
+	@docker compose up --build
