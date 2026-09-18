@@ -20,7 +20,7 @@ import (
 	"github.com/joho/godotenv"
 )
 
-const version = "0.0.1"
+const version = ""
 
 //	@title	GopherSocial API
 
