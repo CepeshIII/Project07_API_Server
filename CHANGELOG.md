@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.0](https://github.com/CepeshIII/Project07_API_Server/compare/v1.0.0...v1.1.0) (2026-09-18)
+
+
+### Features
+
+* update api version automatically ([3f36e53](https://github.com/CepeshIII/Project07_API_Server/commit/3f36e530fc7a012cdc827f7e239ca5d95a0641ee))
+
 ## 1.0.0 (2026-09-17)
 
 
