@@ -2,7 +2,8 @@
 FROM golang:1.26.3 as builder
 WORKDIR /app
 COPY . .
-RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o api cmd/api*.go
+# RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o api cmd/api*.go
+RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o api ./cmd/api
 
 # The run stage
 FROM scratch
