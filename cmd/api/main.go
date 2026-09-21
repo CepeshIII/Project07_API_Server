@@ -43,9 +43,8 @@ const version = "1.1.0"
 func main() {
 
 	// load variables from a .env file.
-	err := godotenv.Load()
-	if err != nil {
-		log.Fatal("Error loading .env file")
+	if err := godotenv.Load(); err != nil {
+		log.Println("No .env file found, relying on system environment variables")
 	}
 
 	cfg := getDefaultConfig()
@@ -73,9 +72,15 @@ func main() {
 
 	// Cache
 	var rdb *redis.Client
-	if cfg.redisCfg.enabled {
-		rdb = cache.NewRedisClient(cfg.redisCfg.addr, cfg.redisCfg.pw, cfg.redisCfg.db)
-		logger.Info("redis cache connection pool established\n")
+	if cfg.redisCfg.enabled && rdb != nil {
+		expvar.Publish("cacheServer", expvar.Func(func() any {
+			return rdb.PoolStats()
+		}))
+		rdb.CSCStats()
+	} else {
+		expvar.Publish("cacheServer", expvar.Func(func() any {
+			return "disabled"
+		}))
 	}
 
 	cacheStore := cache.NewRedisStore(rdb)
@@ -117,17 +122,12 @@ func main() {
 	expvar.Publish("database", expvar.Func(func() any {
 		return database.Stats()
 	}))
-	expvar.Publish("cacheServer", expvar.Func(func() any {
-		return rdb.PoolStats()
-	}))
 	expvar.Publish("goroutines", expvar.Func(func() any {
 		return runtime.NumGoroutine()
 	}))
 	expvar.Publish("numThreads", expvar.Func(func() any {
 		return pprof.Lookup("threadcreate").Count()
 	}))
-
-	rdb.CSCStats()
 
 	mux := app.mount()
 
