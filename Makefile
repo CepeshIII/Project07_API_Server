@@ -50,6 +50,11 @@ test:
 start-vite:
 	@npm --prefix web run dev
 
+.PHONY: build-web
+build-web:
+	@npm --prefix web build dev
+
+
 
 .PHONY: docker-start
 docker-start:

@@ -60,7 +60,6 @@ func main() {
 		cfg.db.maxIdleConns,
 		cfg.db.maxIdleTime,
 	)
-
 	if err != nil {
 		logger.Fatal(err)
 	}

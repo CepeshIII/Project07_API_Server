@@ -1,10 +1,8 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
 import './App.css'
 
-export const API_URL = import.meta.env.VITE_API_URL || "http://localhost:7777/api/v1"
+// export const API_URL = "/v1/health"
+export const API_URL = ""
+// export const API_URL = import.meta.env.VITE_API_URL || "http://127.0.0.1:8085/v1"
 
 function App() {
 
