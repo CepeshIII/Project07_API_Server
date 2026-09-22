@@ -206,7 +206,6 @@ func (app *application) mount() http.Handler {
 
 	return r
 }
-
 func (app *application) run(mux http.Handler) error {
 	// Docs
 	docs.SwaggerInfo.Version = version
@@ -216,39 +215,48 @@ func (app *application) run(mux http.Handler) error {
 	srv := http.Server{
 		Addr:         app.config.addr,
 		Handler:      mux,
-		WriteTimeout: time.Second * 30,
-		ReadTimeout:  time.Second * 10,
-		IdleTimeout:  time.Minute,
+		WriteTimeout: 30 * time.Second,
+		ReadTimeout:  10 * time.Second,
+		IdleTimeout:  1 * time.Minute,
 	}
+
 	shutdown := make(chan error)
 
 	go func() {
 		quit := make(chan os.Signal, 1)
-
 		signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+
 		s := <-quit
 
-		ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+		ctx, cancel := context.WithTimeout(
+			context.Background(),
+			5*time.Second,
+		)
 		defer cancel()
 
-		app.logger.Infow("Signal Caught", "signal", s.String())
+		app.logger.Infow("Signal caught", "signal", s.String())
 
 		shutdown <- srv.Shutdown(ctx)
 	}()
 
-	app.logger.Info(fmt.Sprintf("Server has start at %s\n", app.config.addr))
+	app.logger.Info(
+		fmt.Sprintf("Server starting at %s", app.config.addr),
+	)
 
 	err := srv.ListenAndServe()
-	if errors.Is(err, http.ErrServerClosed) {
-		return err
+
+	if err != nil && !errors.Is(err, http.ErrServerClosed) {
+		return fmt.Errorf("HTTP server failed: %w", err)
 	}
 
 	err = <-shutdown
 	if err != nil {
-		return err
+		return fmt.Errorf("HTTP server shutdown failed: %w", err)
 	}
 
-	app.logger.Info(fmt.Sprintf("Server has finish at %s\n", app.config.addr))
+	app.logger.Info(
+		fmt.Sprintf("Server finished at %s", app.config.addr),
+	)
 
-	return err
+	return nil
 }
