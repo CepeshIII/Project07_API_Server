@@ -23,7 +23,7 @@ export const GetUserPage = () => {
 
     const handleConfirm = async () => {
         try {
-            const response = await fetch(`${API_URL}/api/v1/users/${userID}`, {
+            const response = await fetch(`${API_URL}/v1/users/${userID}`, {
                 method: "GET"
             })
 
