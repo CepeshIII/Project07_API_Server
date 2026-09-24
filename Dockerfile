@@ -34,27 +34,7 @@ COPY . .
 
 
 # ============================================================
-# 3. Go development builder
-#
-# Used locally.
-# BuildKit cache keeps downloaded modules and compiled packages.
-# ============================================================
-
-FROM go-base AS builder-local
-RUN echo "\nTry get go-base set AS builder-local\n" 
-
-RUN --mount=type=cache,target=/go/pkg/mod \
-    --mount=type=cache,target=/root/.cache/go-build \
-    CGO_ENABLED=0 \
-    GOOS=linux \
-    go build \
-    -ldflags="-s -w" \
-    -o /api \
-    ./cmd/api
-
-
-# ============================================================
-# 4. Go production builder
+# 3. Go production builder
 #
 # Used by Google Cloud / CI.
 # No cache mounts.
@@ -71,6 +51,24 @@ RUN CGO_ENABLED=0 \
     ./cmd/api
 
 
+# ============================================================
+# 4. Go development builder
+#
+# Used locally.
+# BuildKit cache keeps downloaded modules and compiled packages.
+# ============================================================
+
+FROM go-base AS builder-local
+RUN echo "\nTry get go-base set AS builder-local\n" 
+
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    CGO_ENABLED=0 \
+    GOOS=linux \
+    go build \
+    -ldflags="-s -w" \
+    -o /api \
+    ./cmd/api
 
 
 # # ============================================================
