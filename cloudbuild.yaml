@@ -4,14 +4,11 @@ steps:
 
   - name: "gcr.io/cloud-builders/docker"
     args:
-      [
-        "build",
-        "--target",
-        "production",
-        "-t",
-        "europe-central2-docker.pkg.dev/${PROJECT_ID}/cloud-run-source-deploy/project07-api-server:$COMMIT_SHA",
-        ".",
-      ]
+      - -c
+      - |
+        docker build \
+        --target build \
+        -t europe-central2-docker.pkg.dev/${PROJECT_ID}/cloud-run-source-deploy/project07-api-server:$COMMIT_SHA .
 
   - name: "gcr.io/cloud-builders/docker"
     args:
