@@ -71,40 +71,41 @@ RUN CGO_ENABLED=0 \
 
 
 
-# ============================================================
-# 5. Local runtime
-#
-# Same final environment, but takes Go binary from
-# the cached local builder.
-# ============================================================
+# # ============================================================
+# # 5. Local runtime
+# #
+# # Same final environment, but takes Go binary from
+# # the cached local builder.
+# # ============================================================
 
-FROM nginx:alpine AS development
+# FROM nginx:alpine AS development
 
-RUN apk add --no-cache gettext ca-certificates
+# RUN apk add --no-cache gettext ca-certificates
 
-WORKDIR /app
+# WORKDIR /app
 
-# Go API
-COPY --from=builder-local /api .
+# # Go API
+# COPY --from=builder-local /api .
 
-# React
-COPY --from=frontend-builder \
-    /app/web/dist \
-    /usr/share/nginx/html
+# # React
+# COPY --from=frontend-builder \
+#     /app/web/dist \
+#     /usr/share/nginx/html
 
-# Nginx configuration
-COPY nginx.conf /etc/nginx/conf.d/configfile.template
+# # Nginx configuration
+# COPY nginx.conf /etc/nginx/conf.d/configfile.template
 
-# Startup script
-COPY entrypoint.sh /entrypoint.sh
+# # Startup script
+# COPY entrypoint.sh /entrypoint.sh
 
-RUN chmod +x /entrypoint.sh
+# RUN chmod +x /entrypoint.sh
 
-ENV PORT=8080
+# ENV PORT=8080
 
-EXPOSE 8080
+# EXPOSE 8080
 
-CMD ["/entrypoint.sh"]
+# CMD ["/entrypoint.sh"]
+
 
 # ============================================================
 # 6. Production runtime
