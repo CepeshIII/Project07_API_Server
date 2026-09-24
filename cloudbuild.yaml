@@ -10,7 +10,6 @@ steps:
         "production",
         "-t",
         "europe-central2-docker.pkg.dev/${PROJECT_ID}/cloud-run-source-deploy/project07-api-server:$COMMIT_SHA",
-        "",
         ".",
       ]
 
