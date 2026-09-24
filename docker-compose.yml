@@ -31,5 +31,19 @@ services:
             - redis
         restart: unless-stopped
 
+    project07-fullstack:
+        container_name: project07-fullstack
+        hostname: project07-fullstack
+        image: fullstack-app:latest
+        ports:
+            - "127.0.0.1:8080:8080"
+        restart: unless-stopped
+        build:
+            context: .
+            dockerfile: Dockerfile
+            target: development
+        env_file:
+            - .env
+
 volumes:
     db-data:

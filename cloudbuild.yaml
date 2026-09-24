@@ -1,0 +1,17 @@
+steps:
+  - name: "gcr.io/cloud-builders/docker"
+    args:
+      - "build"
+      - "--target"
+      - "production"
+      - "-t"
+      - "europe-central2-docker.pkg.dev/project-fda7d00b-c7d5-4f82-9d7/cloud-run-source-deploy/project07-api-server:$COMMIT_SHA"
+      - "."
+
+  - name: "gcr.io/cloud-builders/docker"
+    args:
+      - "push"
+      - "europe-central2-docker.pkg.dev/project-fda7d00b-c7d5-4f82-9d7/cloud-run-source-deploy/project07-api-server:$COMMIT_SHA"
+
+images:
+  - "europe-central2-docker.pkg.dev/project-fda7d00b-c7d5-4f82-9d7/cloud-run-source-deploy/project07-api-server:$COMMIT_SHA"

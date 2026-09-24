@@ -1,20 +1,20 @@
 #!/bin/sh
+envsubst '$PORT, $ADDR' < /etc/nginx/conf.d/configfile.template > /etc/nginx/conf.d/default.conf
 
-# Start the Go backend in the background and pipe its output directly to stdout
+
+# Start Go backend
 /app/api &
 GO_PID=$!
 
-# Wait 2 seconds to give Go time to initialize or crash
-sleep 2
+# Start Nginx in background
+nginx -g 'daemon off;' &
+NGINX_PID=$!
 
-# Check if Go process died immediately
-if ! kill -0 $GO_PID 2>/dev/null; then
-    echo "ERROR: Go backend failed to start or crashed immediately."
-    exit 1
-fi
+# Trap signals and forward them
+trap "kill -TERM $GO_PID $NGINX_PID" SIGTERM SIGINT
 
-echo "Go backend is running successfully."
+# Wait for EITHER process to exit
+wait -n
 
-# Inject Cloud Run's dynamic PORT into Nginx and start Nginx in the foreground
-envsubst '$PORT' < /etc/nginx/conf.d/configfile.template > /etc/nginx/conf.d/default.conf
-nginx -g 'daemon off;'
+# Exit container if either process dies
+exit 1
