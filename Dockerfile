@@ -40,16 +40,16 @@ COPY . .
 # BuildKit cache keeps downloaded modules and compiled packages.
 # ============================================================
 
-FROM go-base AS builder-local
+# FROM go-base AS builder-local
 
-RUN --mount=type=cache,target=/go/pkg/mod \
-    --mount=type=cache,target=/root/.cache/go-build \
-    CGO_ENABLED=0 \
-    GOOS=linux \
-    go build \
-    -ldflags="-s -w" \
-    -o /api \
-    ./cmd/api
+# RUN --mount=type=cache,target=/go/pkg/mod \
+#     --mount=type=cache,target=/root/.cache/go-build \
+#     CGO_ENABLED=0 \
+#     GOOS=linux \
+#     go build \
+#     -ldflags="-s -w" \
+#     -o /api \
+#     ./cmd/api
 
 
 # ============================================================
