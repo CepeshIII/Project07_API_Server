@@ -50,6 +50,7 @@ COPY . .
 #     -ldflags="-s -w" \
 #     -o /api \
 #     ./cmd/api
+RUN echo "go-base set AS builder-local" 
 
 
 # ============================================================
@@ -67,6 +68,7 @@ RUN CGO_ENABLED=0 \
     -ldflags="-s -w" \
     -o /api \
     ./cmd/api
+RUN echo "go-base set AS builder" 
 
 
 
@@ -79,6 +81,7 @@ RUN CGO_ENABLED=0 \
 # # ============================================================
 
 # FROM nginx:alpine AS development
+# RUN echo "FROM nginx:alpine AS development" 
 
 # RUN apk add --no-cache gettext ca-certificates
 
@@ -114,6 +117,7 @@ RUN CGO_ENABLED=0 \
 # ============================================================
 
 FROM nginx:alpine AS production
+# RUN echo "FROM nginx:alpine AS production" 
 
 RUN apk add --no-cache gettext ca-certificates
 
