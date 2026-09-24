@@ -1,5 +1,14 @@
 steps:
   - name: "gcr.io/cloud-builders/docker"
+    entrypoint: "bash"
+    args:
+      - "-c"
+      - |
+        echo "========== USING MY CLOUDBUILD.YAML =========="
+        echo "TARGET: production"
+        echo "COMMIT: $COMMIT_SHA"
+
+  - name: "gcr.io/cloud-builders/docker"
     args:
       - "build"
       - "--target"
