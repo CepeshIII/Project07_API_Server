@@ -69,20 +69,23 @@ RUN CGO_ENABLED=0 \
     ./cmd/api
 
 
+
+
 # ============================================================
-# 5. Production runtime
+# 5. Local runtime
 #
-# Uses the production Go builder.
+# Same final environment, but takes Go binary from
+# the cached local builder.
 # ============================================================
 
-FROM nginx:alpine AS production
+FROM nginx:alpine AS development
 
 RUN apk add --no-cache gettext ca-certificates
 
 WORKDIR /app
 
 # Go API
-COPY --from=builder /api .
+COPY --from=builder-local /api .
 
 # React
 COPY --from=frontend-builder \
@@ -103,22 +106,20 @@ EXPOSE 8080
 
 CMD ["/entrypoint.sh"]
 
-
 # ============================================================
-# 6. Local runtime
+# 6. Production runtime
 #
-# Same final environment, but takes Go binary from
-# the cached local builder.
+# Uses the production Go builder.
 # ============================================================
 
-FROM nginx:alpine AS development
+FROM nginx:alpine AS production
 
 RUN apk add --no-cache gettext ca-certificates
 
 WORKDIR /app
 
 # Go API
-COPY --from=builder-local /api .
+COPY --from=builder /api .
 
 # React
 COPY --from=frontend-builder \
