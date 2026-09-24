@@ -2,7 +2,9 @@ steps:
   - name: "ubuntu"
     args: ["echo", "hello world"]
 
-  - name: "gcr.io/cloud-builders/docker"
+  - id: "build"
+    name: "gcr.io/cloud-builders/docker"
+    entrypoint: bash
     args:
       - -c
       - |
