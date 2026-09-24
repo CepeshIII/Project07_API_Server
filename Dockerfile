@@ -40,17 +40,17 @@ COPY . .
 # BuildKit cache keeps downloaded modules and compiled packages.
 # ============================================================
 
-# FROM go-base AS builder-local
+FROM go-base AS builder-local
+RUN echo "\nTry get go-base set AS builder-local\n" 
 
-# RUN --mount=type=cache,target=/go/pkg/mod \
-#     --mount=type=cache,target=/root/.cache/go-build \
-#     CGO_ENABLED=0 \
-#     GOOS=linux \
-#     go build \
-#     -ldflags="-s -w" \
-#     -o /api \
-#     ./cmd/api
-RUN echo "go-base set AS builder-local" 
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    CGO_ENABLED=0 \
+    GOOS=linux \
+    go build \
+    -ldflags="-s -w" \
+    -o /api \
+    ./cmd/api
 
 
 # ============================================================
@@ -61,6 +61,7 @@ RUN echo "go-base set AS builder-local"
 # ============================================================
 
 FROM go-base AS builder
+RUN echo "\nTry get go-base set AS builder\n" 
 
 RUN CGO_ENABLED=0 \
     GOOS=linux \
@@ -68,7 +69,6 @@ RUN CGO_ENABLED=0 \
     -ldflags="-s -w" \
     -o /api \
     ./cmd/api
-RUN echo "go-base set AS builder" 
 
 
 
@@ -81,7 +81,7 @@ RUN echo "go-base set AS builder"
 # # ============================================================
 
 # FROM nginx:alpine AS development
-# RUN echo "FROM nginx:alpine AS development" 
+# RUN echo "\nTry get  nginx:alpine AS development\n" 
 
 # RUN apk add --no-cache gettext ca-certificates
 
