@@ -42,6 +42,8 @@ services:
             context: .
             dockerfile: Dockerfile
             target: development
+        environment:
+            - DOCKER_BUILDKIT=1
         env_file:
             - .env
 
