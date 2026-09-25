@@ -1,5 +1,30 @@
 # Changelog
 
+## [1.3.0](https://github.com/CepeshIII/Project07_API_Server/compare/v1.2.0...v1.3.0) (2026-09-25)
+
+
+### Features
+
+* **cloudbuild:** add echo step and parameterize image paths in cloudbuild.yaml ([1971b8c](https://github.com/CepeshIII/Project07_API_Server/commit/1971b8c9d80dcd1ecabf27a4e3499e486c9e8a55))
+* **cloudbuild:** add logging steps to cloudbuild.yaml for better visibility during builds ([23ca7e8](https://github.com/CepeshIII/Project07_API_Server/commit/23ca7e8c9bb6373b89ee5d63b5fdde337aaa89f8))
+* dockerfile ([1a3231a](https://github.com/CepeshIII/Project07_API_Server/commit/1a3231afbdcdac6b46843a0f71ef7bfddeb079a7))
+* **docker:** restructure Dockerfile for multi-stage builds and add development target; update entrypoint script and nginx configuration ([1c39173](https://github.com/CepeshIII/Project07_API_Server/commit/1c39173971e883f08802f378cd3c56b4a1e84a4f))
+* implement multi-stage Dockerfile for frontend and backend, add entrypoint script, and configure Nginx ([e4f849d](https://github.com/CepeshIII/Project07_API_Server/commit/e4f849d0c48e98f7e66f1f2a720b77c6003ff944))
+
+
+### Bug Fixes
+
+* **cloudbuild:** add DOCKER_BUILDKIT environment variable for build step ([0743122](https://github.com/CepeshIII/Project07_API_Server/commit/0743122eed7ae0ce1a1037d68f291cd4d8ad577e))
+* **cloudbuild:** change docker build target from 'build' to 'production' ([0ceabbe](https://github.com/CepeshIII/Project07_API_Server/commit/0ceabbe604ac5f0b8066678f45269c21f1b02e23))
+* **cloudbuild:** remove empty string argument from docker build step ([dcb8c01](https://github.com/CepeshIII/Project07_API_Server/commit/dcb8c0150aebbb21eb4b3a40705f709b7a396837))
+* **docker-compose:** set DOCKER_BUILDKIT environment variable for fullstack service ([0743122](https://github.com/CepeshIII/Project07_API_Server/commit/0743122eed7ae0ce1a1037d68f291cd4d8ad577e))
+* **dockerfile:** remove commented cache mount commands for clarity ([e4eba55](https://github.com/CepeshIII/Project07_API_Server/commit/e4eba5517219a015a1d40f270b95fb008cf63711))
+* **docker:** make production stage the default target ([634f4f0](https://github.com/CepeshIII/Project07_API_Server/commit/634f4f018a78d0a3246858ad6ee1c10804834317))
+* **GetUserPage:** correct API endpoint URL for fetching user data ([7f0a698](https://github.com/CepeshIII/Project07_API_Server/commit/7f0a6989174daf4b6663ad38b3725eebd41f8daa))
+* **GetUserPage:** update API endpoint for user data fetching; refactor API_URL in App component ([07471b1](https://github.com/CepeshIII/Project07_API_Server/commit/07471b10fedb3be5e35924d713a0dde0de0cd7d3))
+* **server:** handle missing .env file gracefully and prevent nil Redis panic ([ecd3616](https://github.com/CepeshIII/Project07_API_Server/commit/ecd3616b7980446fa07392b70760cd1d749b891f))
+* update database connection string and adjust Dockerfile build command ([e4dd748](https://github.com/CepeshIII/Project07_API_Server/commit/e4dd7487097eeb1e8d788f2b2c862e1fb0394df3))
+
 ## [1.1.0](https://github.com/CepeshIII/Project07_API_Server/compare/v1.0.0...v1.1.0) (2026-09-18)
 
 
