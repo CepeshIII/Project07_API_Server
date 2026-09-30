@@ -2,3 +2,5 @@
 .env
 .env
 .MVC
+bin/main.exe
+bin/build-errors.log

@@ -18,6 +18,8 @@ services:
         ports:
             - "127.0.0.1:6379:6379"
         command: redis-server --save 60 1 --loglevel warning
+        volumes:
+            - redis_data:/data # Keeps your Redis data safe even if the container stops
 
     redis-commander:
         container_name: redis-commander
@@ -44,8 +46,10 @@ services:
             target: development
         environment:
             - DOCKER_BUILDKIT=1
+            - REDIS_ADDR=redis:6379
         env_file:
             - .env
 
 volumes:
     db-data:
+    redis_data:

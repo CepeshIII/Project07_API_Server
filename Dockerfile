@@ -1,5 +1,6 @@
 # syntax=docker/dockerfile:1
 
+
 # ============================================================
 # 1. React frontend
 # ============================================================
@@ -22,7 +23,7 @@ RUN npm run build
 # 2. Go base
 # ============================================================
 
-FROM golang:1.26.3 AS go-base
+FROM golang:alpine AS go-base
 
 WORKDIR /app
 
@@ -41,7 +42,7 @@ COPY . .
 # ============================================================
 
 FROM go-base AS builder
-RUN echo "\nTry get go-base set AS builder\n" 
+RUN echo "Try get go-base set AS builder" 
 
 RUN CGO_ENABLED=0 \
     GOOS=linux \
@@ -59,7 +60,7 @@ RUN CGO_ENABLED=0 \
 # ============================================================
 
 FROM go-base AS builder-local
-RUN echo "\nTry get go-base set AS builder-local\n" 
+RUN echo "Try get go-base set AS builder-local" 
 
 RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
@@ -79,7 +80,7 @@ RUN --mount=type=cache,target=/go/pkg/mod \
 # # ============================================================
 
 FROM nginx:alpine AS development
-RUN echo "\nTry get  nginx:alpine AS development\n" 
+RUN echo "Try get  nginx:alpine AS development" 
 
 RUN apk add --no-cache gettext ca-certificates
 
@@ -95,6 +96,7 @@ COPY --from=frontend-builder \
 
 # Nginx configuration
 COPY nginx.conf /etc/nginx/conf.d/configfile.template
+
 
 # Startup script
 COPY entrypoint.sh /entrypoint.sh
@@ -136,6 +138,7 @@ COPY nginx.conf /etc/nginx/conf.d/configfile.template
 COPY entrypoint.sh /entrypoint.sh
 
 RUN chmod +x /entrypoint.sh
+
 
 ENV PORT=8080
 

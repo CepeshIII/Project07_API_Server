@@ -2,6 +2,9 @@
 envsubst '$PORT, $ADDR' < /etc/nginx/conf.d/configfile.template > /etc/nginx/conf.d/default.conf
 
 
+# redis-server "/usr/local/etc/redis/redis.conf"
+# redis-server --daemonize yes
+
 # Start Go backend
 /app/api &
 GO_PID=$!
@@ -12,6 +15,7 @@ NGINX_PID=$!
 
 # Trap signals and forward them
 trap "kill -TERM $GO_PID $NGINX_PID" SIGTERM SIGINT
+
 
 # Wait for EITHER process to exit
 wait -n

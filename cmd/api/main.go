@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"expvar"
 	"log"
 	"runtime"
@@ -71,7 +72,16 @@ func main() {
 
 	// Cache
 	var rdb *redis.Client
-	if cfg.redisCfg.enabled && rdb != nil {
+	if cfg.redisCfg.enabled {
+		logger.Info("Trying to setup redis cache server\n")
+		rdb = cache.NewRedisClient(cfg.redisCfg.addr, cfg.redisCfg.pw, cfg.redisCfg.db)
+		cache.CheckConnection(context.Background(), rdb)
+		if err := cache.CheckConnection(context.Background(), rdb); err != nil {
+			logger.Errorf("faild to create Redis client: %v\n", err)
+		} else {
+			logger.Info("redis cache connection pool established\n")
+		}
+
 		expvar.Publish("cacheServer", expvar.Func(func() any {
 			return rdb.PoolStats()
 		}))
