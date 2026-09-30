@@ -15,6 +15,16 @@ steps:
       - "push"
       - "europe-central2-docker.pkg.dev/${PROJECT_ID}/cloud-run-source-deploy/project07-api-server:$COMMIT_SHA"
 
+  - name: "gcr.io/google.com/cloudsdktool/cloud-sdk"
+    args:
+      - "gcloud"
+      - "run"
+      - "services"
+      - "update"
+      - "project07-api-server"
+      - "--image=europe-central2-docker.pkg.dev/${PROJECT_ID}/cloud-run-source-deploy/project07-api-server:$COMMIT_SHA"
+      - "--region=YOUR_REGION"
+
 images:
   - "europe-central2-docker.pkg.dev/${PROJECT_ID}/cloud-run-source-deploy/project07-api-server:$COMMIT_SHA"
 
