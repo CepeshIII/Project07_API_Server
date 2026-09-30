@@ -8,12 +8,12 @@ steps:
       - |
         docker build \
         --target production \
-        -t europe-central2-docker.pkg.dev/${PROJECT_ID}/cloud-run-source-deploy/project07-api-server:$COMMIT_SHA .
+        -t $LOCATION-docker.pkg.dev/${PROJECT_ID}/cloud-run-source-deploy/project07-api-server:$COMMIT_SHA .
 
   - name: "gcr.io/cloud-builders/docker"
     args:
       - "push"
-      - "europe-central2-docker.pkg.dev/${PROJECT_ID}/cloud-run-source-deploy/project07-api-server:$COMMIT_SHA"
+      - "$LOCATION-docker.pkg.dev/${PROJECT_ID}/cloud-run-source-deploy/project07-api-server:$COMMIT_SHA"
 
   - name: "gcr.io/google.com/cloudsdktool/cloud-sdk"
     args:
@@ -22,11 +22,8 @@ steps:
       - "services"
       - "update"
       - "project07-api-server"
-      - "--image=europe-central2-docker.pkg.dev/${PROJECT_ID}/cloud-run-source-deploy/project07-api-server:$COMMIT_SHA"
-      - "--region=YOUR_REGION"
-
-images:
-  - "europe-central2-docker.pkg.dev/${PROJECT_ID}/cloud-run-source-deploy/project07-api-server:$COMMIT_SHA"
+      - "--image=$LOCATION-docker.pkg.dev/${PROJECT_ID}/cloud-run-source-deploy/project07-api-server:$COMMIT_SHA"
+      - "--region=$LOCATION"
 
 options:
   logging: CLOUD_LOGGING_ONLY
