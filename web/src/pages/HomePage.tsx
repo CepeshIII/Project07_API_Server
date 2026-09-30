@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../api";
-import type { Post } from "../api";
 import type { PostWithMetadata } from "../api";
 import { CreatePostForm } from "../components/CreatePostForm";
 
