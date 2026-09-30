@@ -208,10 +208,92 @@ func (s *PostStore) GetUserFeed(ctx context.Context, postID int64, fq PaginatedF
 		fq.Since,
 		fq.Until,
 	)
-
 	if err != nil {
 		return nil, err
 	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	defer rows.Close()
+
+	feed := []*PostWithMetadata{}
+	for rows.Next() {
+		var p PostWithMetadata
+		var post Post
+		post.User = &User{}
+		err = rows.Scan(
+			&post.ID,
+			&post.Title,
+			&post.UserID,
+			&post.Content,
+			&post.CreatedAt,
+			&post.Version,
+			pq.Array(&post.Tags),
+			&post.User.Username,
+			&p.CommentsCount,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		feed = append(feed, &PostWithMetadata{
+			Post:          &post,
+			CommentsCount: p.CommentsCount,
+		})
+	}
+
+	return feed, nil
+}
+
+func (s *PostStore) GetAllPosts(ctx context.Context, fq PaginatedFeedQuery) ([]*PostWithMetadata, error) {
+	query :=
+		`
+		SELECT 
+  			p.id, p.title, p.user_id, p.content, p.created_at, p.version, p.tags, u.username,
+  			COUNT(c.id) AS comments_count
+		FROM posts p
+		LEFT JOIN comments c ON c.post_id = p.id
+		LEFT JOIN users u ON p.user_id = u.id
+		WHERE 
+			(COALESCE(NULLIF($5, ''), '') = '' OR p.created_at >= $5::timestamptz)
+		AND
+			(COALESCE(NULLIF($6, ''), '') = '' OR p.created_at <= $6::timestamptz)
+		AND
+    		(p.tags = '{}' OR p.tags @> $3)
+		AND	
+			(p.content ILIKE '%' || $4 || '%' OR p.title ILIKE '%' || $4 || '%')
+
+		GROUP BY p.id, u.username
+		ORDER BY p.created_at
+		` +
+			fq.Sort +
+			`
+		LIMIT $1
+		OFFSET $2
+	`
+
+	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
+
+	defer cancel()
+
+	rows, err := s.db.QueryContext(
+		ctx,
+		query,
+		fq.Limit,
+		fq.Offset,
+		pq.Array(fq.Tags),
+		fq.Query,
+		fq.Since,
+		fq.Until,
+	)
+	if err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
 	defer rows.Close()
 
 	feed := []*PostWithMetadata{}

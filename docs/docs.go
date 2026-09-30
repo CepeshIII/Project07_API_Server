@@ -201,6 +201,52 @@ const docTemplate = `{
                 }
             }
         },
+        "/posts": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Fetches a posts by ID",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "posts"
+                ],
+                "summary": "Fetches a posts",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/main.PostsPostWithMetadataEnvelope"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/main.ErrorEnvelope"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/main.ErrorEnvelope"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/main.ErrorEnvelope"
+                        }
+                    }
+                }
+            }
+        },
         "/posts/": {
             "post": {
                 "security": [
@@ -944,6 +990,17 @@ const docTemplate = `{
                 }
             }
         },
+        "main.PostsPostWithMetadataEnvelope": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/store.PostWithMetadata"
+                    }
+                }
+            }
+        },
         "main.RegisterUserPayload": {
             "type": "object",
             "required": [
@@ -1118,6 +1175,17 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/store.CommentWithUser"
                     }
+                },
+                "post_data": {
+                    "$ref": "#/definitions/store.Post"
+                }
+            }
+        },
+        "store.PostWithMetadata": {
+            "type": "object",
+            "properties": {
+                "comments_count": {
+                    "type": "integer"
                 },
                 "post_data": {
                     "$ref": "#/definitions/store.Post"

@@ -103,6 +103,10 @@ func (s *FollowersStore) GetFollowers(ctx context.Context, userID int64) ([]Foll
 		return nil, err
 	}
 
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
 	defer rows.Close()
 
 	var followers []Follower

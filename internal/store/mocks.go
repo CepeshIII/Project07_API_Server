@@ -40,6 +40,10 @@ func (*MockPostStore) GetUserFeed(context.Context, int64, PaginatedFeedQuery) ([
 	return nil, nil
 }
 
+func (*MockPostStore) GetAllPosts(context.Context, PaginatedFeedQuery) ([]*PostWithMetadata, error) {
+	return nil, nil
+}
+
 type MockCommentStore struct{}
 
 func (*MockCommentStore) Create(context.Context, *Comment) error {

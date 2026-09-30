@@ -65,6 +65,13 @@ definitions:
       data:
         $ref: '#/definitions/store.PostWithComments'
     type: object
+  main.PostsPostWithMetadataEnvelope:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/store.PostWithMetadata'
+        type: array
+    type: object
   main.RegisterUserPayload:
     properties:
       email:
@@ -183,6 +190,13 @@ definitions:
         items:
           $ref: '#/definitions/store.CommentWithUser'
         type: array
+      post_data:
+        $ref: '#/definitions/store.Post'
+    type: object
+  store.PostWithMetadata:
+    properties:
+      comments_count:
+        type: integer
       post_data:
         $ref: '#/definitions/store.Post'
     type: object
@@ -330,6 +344,35 @@ paths:
       summary: Health check
       tags:
       - health
+  /posts:
+    get:
+      consumes:
+      - application/json
+      description: Fetches a posts by ID
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/main.PostsPostWithMetadataEnvelope'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/main.ErrorEnvelope'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/main.ErrorEnvelope'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/main.ErrorEnvelope'
+      security:
+      - ApiKeyAuth: []
+      summary: Fetches a posts
+      tags:
+      - posts
   /posts/:
     post:
       consumes:

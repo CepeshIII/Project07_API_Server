@@ -115,6 +115,47 @@ func (app *application) getPostHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// GetAllPosts godoc
+//
+//	@Summary		Fetches a posts
+//	@Description	Fetches a posts by ID
+//	@Tags			posts
+//	@Accept			json
+//	@Produce		json
+//	@Success		200	{object}	PostsPostWithMetadataEnvelope
+//	@Failure		400	{object}	ErrorEnvelope
+//	@Failure		404	{object}	ErrorEnvelope
+//	@Failure		500	{object}	ErrorEnvelope
+//	@Security		ApiKeyAuth
+//	@Router			/posts [get]
+func (app *application) getAllPostsHandler(w http.ResponseWriter, r *http.Request) {
+
+	fq := store.PaginatedFeedQuery{
+		Limit:  20,
+		Offset: 0,
+		Sort:   "desc",
+		Tags:   []string{},
+		Query:  "",
+	}
+
+	posts, err := app.store.Posts.GetAllPosts(r.Context(), fq)
+	if err != nil {
+		switch {
+		case errors.Is(err, store.ErrNotFound):
+			break
+		default:
+			app.internalServerError(w, r, err)
+			return
+		}
+	}
+
+	// Write responce
+	if err := app.jsonResponse(w, http.StatusOK, posts); err != nil {
+		app.internalServerError(w, r, err)
+		return
+	}
+}
+
 // GetPostComments godoc
 //
 //	@Summary		Fetches a post comments

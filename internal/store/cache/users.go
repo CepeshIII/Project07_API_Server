@@ -18,7 +18,7 @@ type UserStore struct {
 const UserExpTime = time.Minute
 const UserCacheName = "user"
 
-func (s UserStore) GetUserByID(ctx context.Context, userID int64) (*store.User, error) {
+func (s *UserStore) GetUserByID(ctx context.Context, userID int64) (*store.User, error) {
 	cacheKey := userIDKey(userID)
 
 	data, err := s.rdb.Get(ctx, cacheKey).Result()
@@ -41,7 +41,7 @@ func (s UserStore) GetUserByID(ctx context.Context, userID int64) (*store.User, 
 	return &user, nil
 }
 
-func (s UserStore) SetUser(ctx context.Context, user *store.User) error {
+func (s *UserStore) SetUser(ctx context.Context, user *store.User) error {
 	cacheKey := userIDKey(user.ID)
 
 	json, err := json.Marshal(user)

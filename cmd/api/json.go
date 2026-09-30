@@ -46,6 +46,10 @@ type PostsEnvelope struct {
 	Data []store.Post `json:"data"`
 }
 
+type PostsPostWithMetadataEnvelope struct {
+	Data []store.PostWithMetadata `json:"data"`
+}
+
 type MessageEnvelope struct {
 	Data string `json:"data"`
 }
