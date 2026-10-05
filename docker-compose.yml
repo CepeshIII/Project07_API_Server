@@ -10,6 +10,11 @@ services:
             - ./scripts:/docker-entrypoint-initdb.d
         ports:
             - "127.0.0.1:5433:5432"
+        healthcheck:
+            test: ["CMD", "pg_isready", "-h", "localhost", "-p", "5432", "-U", "admin", "-d", "social"]
+            interval: 2s
+            timeout: 3s
+            retries: 5
 
     redis:
         image: redis:6.2-alpine
@@ -51,7 +56,7 @@ services:
             - .env
         depends_on:
             social_db:
-                condition: service_started # or service_healthy if you add a healthcheck
+                condition: service_healthy # or service_healthy if you add a healthcheck
             redis:
                 condition: service_started
 
