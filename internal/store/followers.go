@@ -11,10 +11,15 @@ type FollowersStore struct {
 	db *sql.DB
 }
 
-type Follower struct {
+type FollowerModel struct {
 	UserID     int64  `json:"user_id"`
 	FollowerID int64  `json:"follower_id"`
 	CreatedAt  string `json:"created_at"`
+}
+
+type Follower struct {
+	UserSummary *UserSummary `json:"user_summary"`
+	CreatedAt   string       `json:"created_at"`
 }
 
 // FollowUser creates a relationship where followerID follows followeeID (userID).
@@ -87,6 +92,48 @@ func (s *FollowersStore) UnfollowUser(ctx context.Context, followerID, followeeI
 
 func (s *FollowersStore) GetFollowers(ctx context.Context, userID int64) ([]Follower, error) {
 	query := `
+	SELECT f.follower_id, f.created_at, u.username
+		FROM followers f
+		JOIN users u ON f.follower_id = u.id
+		WHERE f.user_id = $1
+	`
+
+	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
+	defer cancel()
+
+	rows, err := s.db.QueryContext(
+		ctx,
+		query,
+		userID,
+	)
+
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var followers []Follower
+	for rows.Next() {
+		follower := Follower{
+			UserSummary: &UserSummary{},
+		}
+		err := rows.Scan(&follower.UserSummary.ID, &follower.CreatedAt, &follower.UserSummary.Username)
+		if err != nil {
+			return nil, err
+		}
+
+		followers = append(followers, follower)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return followers, nil
+}
+
+func (s *FollowersStore) GetFollowerModels(ctx context.Context, userID int64) ([]FollowerModel, error) {
+	query := `
 	SELECT * FROM followers
 		WHERE user_id = $1
 	`
@@ -109,9 +156,9 @@ func (s *FollowersStore) GetFollowers(ctx context.Context, userID int64) ([]Foll
 
 	defer rows.Close()
 
-	var followers []Follower
+	var followers []FollowerModel
 	for rows.Next() {
-		var follower Follower
+		var follower FollowerModel
 		err := rows.Scan(&follower.UserID, &follower.FollowerID, &follower.CreatedAt)
 		if err != nil {
 			return nil, err

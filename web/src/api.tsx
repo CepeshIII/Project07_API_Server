@@ -13,6 +13,11 @@ export interface User {
     role_id: number;
 }
 
+export interface UserSummary {
+    id: number;
+    username: string;
+}
+
 export interface Post {
     id: number;
     title: string;
@@ -20,7 +25,6 @@ export interface Post {
     tags: string[];
     created_at: string;
     updated_at: string;
-    user_id: number;
     version: number;
     user: User;
 }
@@ -37,20 +41,30 @@ export interface CommentWithUser extends Comment {
     username: string;
 }
 
-export interface PostWithMetadata {
-    post_data: Post;
-    comments_count: number;
-}
+// export interface PostWithMetadata {
+//     post_data: Post;
+//     comments_count: number;
+// }
 
 export interface PostWithComments {
     post_data: Post;
     post_comments: CommentWithUser[];
 }
 
+export interface PostFeedItem {
+    id: number
+    title: string
+    content: string
+    tags: string[]
+    created_at: string
+    version: number
+    user_summary: UserSummary
+    comments_count: number
+}
+
 export interface Follower {
-    created_at: string;
-    follower_id: number;
-    user_id: number;
+    user_summary: UserSummary;
+    created_at: string
 }
 
 export interface ApiResponse<T> {
@@ -281,5 +295,5 @@ export const api = {
         }),
 
     getPosts: () =>
-        request<ApiResponse<PostWithMetadata[]>>("/posts"),
+        request<ApiResponse<PostFeedItem[]>>("/posts"),
 };

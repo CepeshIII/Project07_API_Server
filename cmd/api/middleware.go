@@ -178,6 +178,7 @@ func (app *application) checkPostOwnership(roleName string, next http.HandlerFun
 		ctx := r.Context()
 		userID, err := getAuthUserIDFromCtx(r)
 		if err != nil {
+			// This should not happen if the middleware is working correctly
 			app.internalServerError(w, r, err)
 			return
 		}
@@ -193,7 +194,18 @@ func (app *application) checkPostOwnership(roleName string, next http.HandlerFun
 			return
 		}
 
-		post := getPostFromCtx(r)
+		postID, err := getPostIDFromCtx(r)
+		if err != nil {
+			// This should not happen if the middleware is working correctly
+			app.internalServerError(w, r, err)
+			return
+		}
+
+		post, err := app.store.Posts.GetPostModel(ctx, postID)
+		if err != nil {
+			app.internalServerError(w, r, err)
+			return
+		}
 
 		if post.UserID != userWithRole.ID {
 			ok, err := app.checkRolePrecedence(ctx, userWithRole, roleName)
@@ -217,10 +229,10 @@ func (app *application) checkUserOwnership(roleName string, next http.HandlerFun
 		ctx := r.Context()
 
 		// get target user form context
-		targetUser := getTargetUserFromCtx(r)
-		if targetUser == nil {
+		targetUser, err := getTargetUserFromCtx(r)
+		if err != nil {
 			// This should not happen if the middleware is working correctly
-			app.internalServerError(w, r, errors.New("target user missing from context"))
+			app.internalServerError(w, r, err)
 			return
 		}
 
@@ -316,14 +328,15 @@ func (app *application) accessTokenMiddleware(next http.Handler) http.Handler {
 
 func (app *application) postContextMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		id, err := parsePostID(r)
+		id, err := getPostIDFromCtx(r)
 		if err != nil {
+			// This should not happen if the middleware is working correctly
 			app.internalServerError(w, r, err)
 			return
 		}
 
 		ctx := r.Context()
-		post, err := app.store.Posts.GetByID(ctx, id)
+		post, err := app.store.Posts.GetPost(ctx, id)
 		if err != nil {
 			switch {
 			case errors.Is(err, store.ErrNotFound):
@@ -335,6 +348,19 @@ func (app *application) postContextMiddleware(next http.Handler) http.Handler {
 		}
 
 		ctx = context.WithValue(ctx, postCtxKey, post)
+		next.ServeHTTP(w, r.WithContext(ctx))
+	})
+}
+
+func (app *application) postIDContextMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		id, err := parsePostID(r)
+		if err != nil {
+			app.internalServerError(w, r, err)
+			return
+		}
+
+		ctx := context.WithValue(r.Context(), postIDCtxKey, id)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }

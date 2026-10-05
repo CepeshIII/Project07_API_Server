@@ -8,13 +8,16 @@ import (
 
 var (
 	errTargetUserMissing         = errors.New("target user missing from context")
+	errPostMissing               = errors.New("post missing from context")
+	errPostIDMissing             = errors.New("post ID missing from context")
 	errAuthUserMissing           = errors.New("authenticated user missing from context")
 	errInvalidUsernameOrPassword = errors.New("invalid Username or password")
+	errServerEncounteredProblem  = errors.New("the server encountered a problem")
 )
 
 func (app *application) internalServerError(w http.ResponseWriter, r *http.Request, err error) {
 	app.logger.Errorw("internal server error", "method", r.Method, "path", r.URL.Path, "error", err.Error())
-	writeJSONError(w, http.StatusInternalServerError, "the server encountered a problem")
+	writeJSONError(w, http.StatusInternalServerError, errServerEncounteredProblem.Error())
 }
 
 func (app *application) badRequestResponse(w http.ResponseWriter, r *http.Request, err error) {

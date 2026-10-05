@@ -4,25 +4,31 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"time"
 
 	"github.com/lib/pq"
 )
 
-type PostWithComments struct {
-	Post     *Post             `json:"post_data"`
-	Comments []CommentWithUser `json:"post_comments"`
+// PostModel represents the database entity and matches the exact columns of the posts table.
+type PostModel struct {
+	ID      int64  `db:"id"`
+	Title   string `db:"title"`
+	UserID  int64  `db:"user_id"`
+	Content string `db:"content"`
+
+	Tags []string `db:"tags"`
+
+	CreatedAt time.Time `db:"created_at"`
+	UpdatedAt time.Time `db:"updated_at"`
+
+	Version int `db:"version"`
 }
 
-type PostWithMetadata struct {
-	Post          *Post `json:"post_data"`
-	CommentsCount int   `json:"comments_count"`
-}
-
+// Domain Model
 type Post struct {
 	ID      int64  `json:"id" example:"1"`
-	Content string `json:"content"`
 	Title   string `json:"title"`
-	UserID  int64  `json:"user_id" example:"1"`
+	Content string `json:"content"`
 	Version int    `json:"version"`
 
 	Tags []string `json:"tags"`
@@ -33,11 +39,39 @@ type Post struct {
 	User *User `json:"user"`
 }
 
+// PostWithComments represents a post along with its associated comments.
+type PostWithComments struct {
+	Post     *Post             `json:"post_data"`
+	Comments []CommentWithUser `json:"post_comments"`
+}
+
+type PostFeedItem struct {
+	ID            int64        `json:"id"`
+	Title         string       `json:"title"`
+	Content       string       `json:"content"`
+	Tags          []string     `json:"tags"`
+	CreatedAt     string       `json:"created_at"`
+	Version       int          `json:"version"`
+	UserSummary   *UserSummary `json:"user_summary"`
+	CommentsCount int          `json:"comments_count"`
+}
+
+// UpdatePostRequest defines the payload allowed when updating a post.
+type UpdatePostRequest struct {
+	Title   string   `json:"title"`
+	Content string   `json:"content"`
+	Tags    []string `json:"tags"`
+
+	// Pro-tip: You can include Version here if you implement Optimistic Locking
+	// to prevent race conditions when two people edit the post at the same time.
+	Version int `json:"version"`
+}
+
 type PostStore struct {
 	db *sql.DB
 }
 
-func (s *PostStore) Create(ctx context.Context, post *Post) error {
+func (s *PostStore) Create(ctx context.Context, post *PostModel) error {
 	query := `
 	INSERT INTO posts (content, title, user_id, tags)
 	VALUES ($1, $2, $3, $4) RETURNING id, created_at, updated_at
@@ -62,13 +96,16 @@ func (s *PostStore) Create(ctx context.Context, post *Post) error {
 	return err
 }
 
-func (s *PostStore) GetByID(ctx context.Context, postID int64) (*Post, error) {
-	post := Post{}
+func (s *PostStore) GetPost(ctx context.Context, postID int64) (*Post, error) {
+	post := Post{
+		User: &User{},
+	}
 
 	query := `
-	SELECT id, content, title, user_id, tags, created_at, updated_at, version
-	FROM posts 
-	WHERE id = $1
+	SELECT p.id, p.content, p.title, p.tags, p.created_at, p.updated_at, p.version, u.id, u.username, u.email, u.created_at, u.is_active, u.password, u.role_id
+	FROM posts p
+	LEFT JOIN users u ON p.user_id = u.id
+	WHERE p.id = $1
 	`
 
 	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
@@ -78,7 +115,6 @@ func (s *PostStore) GetByID(ctx context.Context, postID int64) (*Post, error) {
 		&post.ID,
 		&post.Content,
 		&post.Title,
-		&post.UserID,
 
 		pq.Array(&post.Tags),
 
@@ -86,6 +122,14 @@ func (s *PostStore) GetByID(ctx context.Context, postID int64) (*Post, error) {
 		&post.UpdatedAt,
 
 		&post.Version,
+
+		&post.User.ID,
+		&post.User.Username,
+		&post.User.Email,
+		&post.User.CreatedAt,
+		&post.User.IsActive,
+		&post.User.Password.hash,
+		&post.User.RoleID,
 	)
 
 	if err != nil {
@@ -101,17 +145,55 @@ func (s *PostStore) GetByID(ctx context.Context, postID int64) (*Post, error) {
 	return &post, nil
 }
 
-func (s *PostStore) Update(ctx context.Context, postID int64, post *Post) error {
+func (s *PostStore) GetPostModel(ctx context.Context, postID int64) (*PostModel, error) {
+	postModel := PostModel{}
+
+	query := `
+	SELECT id, content, title, user_id, tags, created_at, updated_at, version
+	FROM posts 
+	WHERE id = $1
+	`
+
+	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
+	defer cancel()
+
+	err := s.db.QueryRowContext(ctx, query, postID).Scan(
+		&postModel.ID,
+		&postModel.Content,
+		&postModel.Title,
+		&postModel.UserID,
+
+		pq.Array(&postModel.Tags),
+
+		&postModel.CreatedAt,
+		&postModel.UpdatedAt,
+
+		&postModel.Version,
+	)
+
+	if err != nil {
+
+		switch {
+		case errors.Is(err, sql.ErrNoRows):
+			return nil, ErrNotFound
+		default:
+			return nil, err
+		}
+	}
+
+	return &postModel, nil
+}
+
+func (s *PostStore) Update(ctx context.Context, postID int64, post *UpdatePostRequest) error {
 	query := `
 		UPDATE posts
 		SET title = $1, content = $2, tags = $3, updated_at = NOW(), version = version + 1
 		WHERE id = $4 AND version = $5
-		RETURNING id, title, content, tags, user_id, created_at, updated_at, version
 	`
 	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
 	defer cancel()
 
-	err := s.db.QueryRowContext(
+	result, err := s.db.ExecContext(
 		ctx,
 		query,
 		post.Title,
@@ -119,23 +201,21 @@ func (s *PostStore) Update(ctx context.Context, postID int64, post *Post) error 
 		pq.Array(post.Tags),
 		postID,
 		post.Version,
-	).Scan(
-		&post.ID,
-		&post.Title,
-		&post.Content,
-		pq.Array(&post.Tags),
-		&post.UserID,
-		&post.CreatedAt,
-		&post.UpdatedAt,
-		&post.Version,
 	)
-
-	switch {
-	case errors.Is(err, sql.ErrNoRows):
-		return ErrConflict
-	default:
+	if err != nil {
 		return err
 	}
+
+	count, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+
+	if count == 0 {
+		return ErrConflict
+	}
+
+	return nil
 }
 
 func (s *PostStore) Delete(ctx context.Context, postID int64) error {
@@ -163,11 +243,11 @@ func (s *PostStore) Delete(ctx context.Context, postID int64) error {
 	return nil
 }
 
-func (s *PostStore) GetUserFeed(ctx context.Context, postID int64, fq PaginatedFeedQuery) ([]*PostWithMetadata, error) {
+func (s *PostStore) GetUserFeed(ctx context.Context, userID int64, fq PaginatedFeedQuery) ([]*PostFeedItem, error) {
 	query :=
 		`
 		SELECT 
-  			p.id, p.title, p.user_id, p.content, p.created_at, p.version, p.tags, u.username,
+  			p.id, p.title, p.content, p.created_at, p.version, p.tags, u.username,
   			COUNT(c.id) AS comments_count
 		FROM posts p
 		LEFT JOIN comments c ON c.post_id = p.id
@@ -200,7 +280,7 @@ func (s *PostStore) GetUserFeed(ctx context.Context, postID int64, fq PaginatedF
 	rows, err := s.db.QueryContext(
 		ctx,
 		query,
-		postID,
+		userID,
 		fq.Limit,
 		fq.Offset,
 		pq.Array(fq.Tags),
@@ -211,46 +291,35 @@ func (s *PostStore) GetUserFeed(ctx context.Context, postID int64, fq PaginatedF
 	if err != nil {
 		return nil, err
 	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
 
 	defer rows.Close()
 
-	feed := []*PostWithMetadata{}
+	feed := []*PostFeedItem{}
 	for rows.Next() {
-		var p PostWithMetadata
-		var post Post
-		post.User = &User{}
-		err = rows.Scan(
-			&post.ID,
-			&post.Title,
-			&post.UserID,
-			&post.Content,
-			&post.CreatedAt,
-			&post.Version,
-			pq.Array(&post.Tags),
-			&post.User.Username,
-			&p.CommentsCount,
-		)
-		if err != nil {
+		postFeedItem := PostFeedItem{
+			UserSummary: &UserSummary{},
+		}
+		if err := rows.Scan(
+			&postFeedItem.ID, &postFeedItem.Title, &postFeedItem.Content, &postFeedItem.CreatedAt, &postFeedItem.Version,
+			pq.Array(&postFeedItem.Tags), &postFeedItem.UserSummary.Username, &postFeedItem.CommentsCount,
+		); err != nil {
 			return nil, err
 		}
+		feed = append(feed, &postFeedItem)
+	}
 
-		feed = append(feed, &PostWithMetadata{
-			Post:          &post,
-			CommentsCount: p.CommentsCount,
-		})
+	if err := rows.Err(); err != nil {
+		return nil, err
 	}
 
 	return feed, nil
 }
 
-func (s *PostStore) GetAllPosts(ctx context.Context, fq PaginatedFeedQuery) ([]*PostWithMetadata, error) {
+func (s *PostStore) GetAllPosts(ctx context.Context, fq PaginatedFeedQuery) ([]*PostFeedItem, error) {
 	query :=
 		`
 		SELECT 
-  			p.id, p.title, p.user_id, p.content, p.created_at, p.version, p.tags, u.username,
+  			p.id, p.title, p.content, p.created_at, p.version, p.tags, u.username, p.user_id,
   			COUNT(c.id) AS comments_count
 		FROM posts p
 		LEFT JOIN comments c ON c.post_id = p.id
@@ -290,36 +359,25 @@ func (s *PostStore) GetAllPosts(ctx context.Context, fq PaginatedFeedQuery) ([]*
 	if err != nil {
 		return nil, err
 	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
 
 	defer rows.Close()
 
-	feed := []*PostWithMetadata{}
+	feed := []*PostFeedItem{}
 	for rows.Next() {
-		var p PostWithMetadata
-		var post Post
-		post.User = &User{}
-		err = rows.Scan(
-			&post.ID,
-			&post.Title,
-			&post.UserID,
-			&post.Content,
-			&post.CreatedAt,
-			&post.Version,
-			pq.Array(&post.Tags),
-			&post.User.Username,
-			&p.CommentsCount,
-		)
-		if err != nil {
+		postFeedItem := PostFeedItem{
+			UserSummary: &UserSummary{},
+		}
+		if err := rows.Scan(
+			&postFeedItem.ID, &postFeedItem.Title, &postFeedItem.Content, &postFeedItem.CreatedAt, &postFeedItem.Version,
+			pq.Array(&postFeedItem.Tags), &postFeedItem.UserSummary.Username, &postFeedItem.UserSummary.ID, &postFeedItem.CommentsCount,
+		); err != nil {
 			return nil, err
 		}
+		feed = append(feed, &postFeedItem)
+	}
 
-		feed = append(feed, &PostWithMetadata{
-			Post:          &post,
-			CommentsCount: p.CommentsCount,
-		})
+	if err := rows.Err(); err != nil {
+		return nil, err
 	}
 
 	return feed, nil

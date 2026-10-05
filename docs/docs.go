@@ -444,7 +444,7 @@ const docTemplate = `{
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "$ref": "#/definitions/store.Post"
+                            "$ref": "#/definitions/main.MessageEnvelope"
                         }
                     },
                     "400": {
@@ -949,7 +949,7 @@ const docTemplate = `{
                 "data": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/store.Follower"
+                        "$ref": "#/definitions/store.FollowerModel"
                     }
                 }
             }
@@ -996,7 +996,7 @@ const docTemplate = `{
                 "data": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/store.PostWithMetadata"
+                        "$ref": "#/definitions/store.PostFeedItem"
                     }
                 }
             }
@@ -1116,7 +1116,7 @@ const docTemplate = `{
                 }
             }
         },
-        "store.Follower": {
+        "store.FollowerModel": {
             "type": "object",
             "properties": {
                 "created_at": {
@@ -1158,9 +1158,37 @@ const docTemplate = `{
                 "user": {
                     "$ref": "#/definitions/store.User"
                 },
-                "user_id": {
-                    "type": "integer",
-                    "example": 1
+                "version": {
+                    "type": "integer"
+                }
+            }
+        },
+        "store.PostFeedItem": {
+            "type": "object",
+            "properties": {
+                "comments_count": {
+                    "type": "integer"
+                },
+                "content": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "tags": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "title": {
+                    "type": "string"
+                },
+                "user_summary": {
+                    "$ref": "#/definitions/store.UserSummary"
                 },
                 "version": {
                     "type": "integer"
@@ -1175,17 +1203,6 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/store.CommentWithUser"
                     }
-                },
-                "post_data": {
-                    "$ref": "#/definitions/store.Post"
-                }
-            }
-        },
-        "store.PostWithMetadata": {
-            "type": "object",
-            "properties": {
-                "comments_count": {
-                    "type": "integer"
                 },
                 "post_data": {
                     "$ref": "#/definitions/store.Post"
@@ -1209,6 +1226,17 @@ const docTemplate = `{
                     "type": "boolean"
                 },
                 "role_id": {
+                    "type": "integer"
+                },
+                "username": {
+                    "type": "string"
+                }
+            }
+        },
+        "store.UserSummary": {
+            "type": "object",
+            "properties": {
+                "id": {
                     "type": "integer"
                 },
                 "username": {

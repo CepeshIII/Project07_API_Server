@@ -19,12 +19,13 @@ var (
 
 type Storage struct {
 	Posts interface {
-		Create(context.Context, *Post) error
-		GetByID(context.Context, int64) (*Post, error)
-		Update(context.Context, int64, *Post) error
+		Create(context.Context, *PostModel) error
+		GetPostModel(context.Context, int64) (*PostModel, error)
+		GetPost(context.Context, int64) (*Post, error)
+		Update(context.Context, int64, *UpdatePostRequest) error
 		Delete(context.Context, int64) error
-		GetUserFeed(context.Context, int64, PaginatedFeedQuery) ([]*PostWithMetadata, error)
-		GetAllPosts(context.Context, PaginatedFeedQuery) ([]*PostWithMetadata, error)
+		GetUserFeed(context.Context, int64, PaginatedFeedQuery) ([]*PostFeedItem, error)
+		GetAllPosts(context.Context, PaginatedFeedQuery) ([]*PostFeedItem, error)
 	}
 
 	Users interface {
@@ -55,6 +56,7 @@ type Storage struct {
 		FollowUser(ctx context.Context, followerID, followeeID int64) error
 		UnfollowUser(ctx context.Context, followerID, followeeID int64) error
 		GetFollowers(context.Context, int64) ([]Follower, error)
+		GetFollowerModels(context.Context, int64) ([]FollowerModel, error)
 	}
 
 	Sessions interface {

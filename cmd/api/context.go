@@ -1,7 +1,6 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -15,17 +14,21 @@ const (
 	targetUserCtxKey contextKey = "user"
 	authUserIDCtxKey contextKey = "userID"
 	postCtxKey       contextKey = "post"
+	postIDCtxKey     contextKey = "postID"
 )
 
-func getTargetUserFromCtx(r *http.Request) *store.User {
-	user, _ := r.Context().Value(targetUserCtxKey).(*store.User)
-	return user
+func getTargetUserFromCtx(r *http.Request) (*store.User, error) {
+	user, ok := r.Context().Value(targetUserCtxKey).(*store.User)
+	if !ok {
+		return nil, errTargetUserMissing
+	}
+	return user, nil
 }
 
 func getAuthUserIDFromCtx(r *http.Request) (int64, error) {
 	value := r.Context().Value(authUserIDCtxKey)
 	if value == nil {
-		return 0, errors.New("authenticated user ID missing from context")
+		return 0, errAuthUserMissing
 	}
 
 	idString := fmt.Sprint(value)
@@ -37,7 +40,18 @@ func getAuthUserIDFromCtx(r *http.Request) (int64, error) {
 	return userID, nil
 }
 
-func getPostFromCtx(r *http.Request) *store.Post {
-	post, _ := r.Context().Value(postCtxKey).(*store.Post)
-	return post
+func getPostFromCtx(r *http.Request) (*store.Post, error) {
+	post, ok := r.Context().Value(postCtxKey).(*store.Post)
+	if !ok {
+		return nil, errPostMissing
+	}
+	return post, nil
+}
+
+func getPostIDFromCtx(r *http.Request) (int64, error) {
+	post, ok := r.Context().Value(postIDCtxKey).(int64)
+	if !ok {
+		return 0, errPostIDMissing
+	}
+	return post, nil
 }

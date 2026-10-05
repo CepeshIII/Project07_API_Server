@@ -49,7 +49,6 @@ func (app *application) getRole(ctx context.Context, roleId int64) (*store.Role,
 				return role, nil
 			}
 		}
-
 	}
 
 	role, err := app.store.Roles.GetRoleByID(ctx, roleId)

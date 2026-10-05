@@ -39,7 +39,7 @@ type CommentsEnvelope struct {
 }
 
 type FollowersEnvelope struct {
-	Data []store.Follower `json:"data"`
+	Data []store.FollowerModel `json:"data"`
 }
 
 type PostsEnvelope struct {
@@ -47,7 +47,7 @@ type PostsEnvelope struct {
 }
 
 type PostsPostWithMetadataEnvelope struct {
-	Data []store.PostWithMetadata `json:"data"`
+	Data []store.PostFeedItem `json:"data"`
 }
 
 type MessageEnvelope struct {

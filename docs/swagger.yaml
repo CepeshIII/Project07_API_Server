@@ -37,7 +37,7 @@ definitions:
     properties:
       data:
         items:
-          $ref: '#/definitions/store.Follower'
+          $ref: '#/definitions/store.FollowerModel'
         type: array
     type: object
   main.LoginUserPayload:
@@ -69,7 +69,7 @@ definitions:
     properties:
       data:
         items:
-          $ref: '#/definitions/store.PostWithMetadata'
+          $ref: '#/definitions/store.PostFeedItem'
         type: array
     type: object
   main.RegisterUserPayload:
@@ -150,7 +150,7 @@ definitions:
       username:
         type: string
     type: object
-  store.Follower:
+  store.FollowerModel:
     properties:
       created_at:
         type: string
@@ -178,9 +178,27 @@ definitions:
         type: string
       user:
         $ref: '#/definitions/store.User'
-      user_id:
-        example: 1
+      version:
         type: integer
+    type: object
+  store.PostFeedItem:
+    properties:
+      comments_count:
+        type: integer
+      content:
+        type: string
+      created_at:
+        type: string
+      id:
+        type: integer
+      tags:
+        items:
+          type: string
+        type: array
+      title:
+        type: string
+      user_summary:
+        $ref: '#/definitions/store.UserSummary'
       version:
         type: integer
     type: object
@@ -190,13 +208,6 @@ definitions:
         items:
           $ref: '#/definitions/store.CommentWithUser'
         type: array
-      post_data:
-        $ref: '#/definitions/store.Post'
-    type: object
-  store.PostWithMetadata:
-    properties:
-      comments_count:
-        type: integer
       post_data:
         $ref: '#/definitions/store.Post'
     type: object
@@ -212,6 +223,13 @@ definitions:
       is_active:
         type: boolean
       role_id:
+        type: integer
+      username:
+        type: string
+    type: object
+  store.UserSummary:
+    properties:
+      id:
         type: integer
       username:
         type: string
@@ -496,7 +514,7 @@ paths:
         "201":
           description: Created
           schema:
-            $ref: '#/definitions/store.Post'
+            $ref: '#/definitions/main.MessageEnvelope'
         "400":
           description: Bad Request
           schema:

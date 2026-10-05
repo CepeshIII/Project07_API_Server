@@ -1,5 +1,5 @@
 services:
-    db:
+    social_db:
         image: postgres:16.3
         environment:
             POSTGRES_DB: social
@@ -9,7 +9,7 @@ services:
             - db-data:/var/lib/postgresql/data
             - ./scripts:/docker-entrypoint-initdb.d
         ports:
-            - "5433:5432"
+            - "127.0.0.1:5433:5432"
 
     redis:
         image: redis:6.2-alpine
@@ -49,6 +49,11 @@ services:
             - REDIS_ADDR=redis:6379
         env_file:
             - .env
+        depends_on:
+            social_db:
+                condition: service_started # or service_healthy if you add a healthcheck
+            redis:
+                condition: service_started
 
 volumes:
     db-data:

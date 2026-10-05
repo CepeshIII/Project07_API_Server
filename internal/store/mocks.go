@@ -18,49 +18,92 @@ func NewMockStorage() Storage {
 	}
 }
 
-type MockPostStore struct{}
+// --- MockPostStore ---
 
-func (*MockPostStore) Create(context.Context, *Post) error {
-	return nil
+type MockPostStore struct {
+	mock.Mock
 }
 
-func (*MockPostStore) GetByID(context.Context, int64) (*Post, error) {
-	return nil, nil
+func (m *MockPostStore) Create(ctx context.Context, post *PostModel) error {
+	args := m.Called(ctx, post)
+	return args.Error(0)
 }
 
-func (*MockPostStore) Update(context.Context, int64, *Post) error {
-	return nil
+func (m *MockPostStore) GetPost(ctx context.Context, id int64) (*Post, error) {
+	args := m.Called(ctx, id)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*Post), args.Error(1)
 }
 
-func (*MockPostStore) Delete(context.Context, int64) error {
-	return nil
+func (m *MockPostStore) GetPostModel(ctx context.Context, id int64) (*PostModel, error) {
+	args := m.Called(ctx, id)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*PostModel), args.Error(1)
 }
 
-func (*MockPostStore) GetUserFeed(context.Context, int64, PaginatedFeedQuery) ([]*PostWithMetadata, error) {
-	return nil, nil
+func (m *MockPostStore) Update(ctx context.Context, id int64, req *UpdatePostRequest) error {
+	args := m.Called(ctx, id, req)
+	return args.Error(0)
 }
 
-func (*MockPostStore) GetAllPosts(context.Context, PaginatedFeedQuery) ([]*PostWithMetadata, error) {
-	return nil, nil
+func (m *MockPostStore) Delete(ctx context.Context, id int64) error {
+	args := m.Called(ctx, id)
+	return args.Error(0)
 }
 
-type MockCommentStore struct{}
-
-func (*MockCommentStore) Create(context.Context, *Comment) error {
-	return nil
+func (m *MockPostStore) GetUserFeed(ctx context.Context, userID int64, query PaginatedFeedQuery) ([]*PostFeedItem, error) {
+	args := m.Called(ctx, userID, query)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*PostFeedItem), args.Error(1)
 }
 
-func (*MockCommentStore) GetByID(context.Context, int64, int64) (*Comment, error) {
-	return nil, nil
+func (m *MockPostStore) GetAllPosts(ctx context.Context, query PaginatedFeedQuery) ([]*PostFeedItem, error) {
+	args := m.Called(ctx, query)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*PostFeedItem), args.Error(1)
 }
 
-func (*MockCommentStore) GetByPostID(context.Context, int64) ([]CommentWithUser, error) {
-	return nil, nil
+// --- MockCommentStore ---
+
+type MockCommentStore struct {
+	mock.Mock
 }
 
-func (*MockCommentStore) DeleteByPostID(context.Context, int64) error {
-	return nil
+func (m *MockCommentStore) Create(ctx context.Context, comment *Comment) error {
+	args := m.Called(ctx, comment)
+	return args.Error(0)
 }
+
+func (m *MockCommentStore) GetByID(ctx context.Context, postID, commentID int64) (*Comment, error) {
+	args := m.Called(ctx, postID, commentID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*Comment), args.Error(1)
+}
+
+func (m *MockCommentStore) GetByPostID(ctx context.Context, postID int64) ([]CommentWithUser, error) {
+	args := m.Called(ctx, postID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]CommentWithUser), args.Error(1)
+}
+
+func (m *MockCommentStore) DeleteByPostID(ctx context.Context, postID int64) error {
+	args := m.Called(ctx, postID)
+	return args.Error(0)
+}
+
+// --- MockFollowersStore ---
 
 type MockFollowersStore struct {
 	mock.Mock
@@ -84,15 +127,31 @@ func (m *MockFollowersStore) GetFollowers(ctx context.Context, userID int64) ([]
 	return args.Get(0).([]Follower), args.Error(1)
 }
 
-type MockSessionsStore struct{}
-
-func (*MockSessionsStore) CreateSession(context.Context, *SessionData) error {
-	return nil
+func (m *MockFollowersStore) GetFollowerModels(ctx context.Context, userID int64) ([]FollowerModel, error) {
+	args := m.Called(ctx, userID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]FollowerModel), args.Error(1)
 }
 
-func (*MockSessionsStore) GetSessionByTokenHash(context.Context, *SessionData) error {
-	return nil
+// --- MockSessionsStore ---
+
+type MockSessionsStore struct {
+	mock.Mock
 }
+
+func (m *MockSessionsStore) CreateSession(ctx context.Context, data *SessionData) error {
+	args := m.Called(ctx, data)
+	return args.Error(0)
+}
+
+func (m *MockSessionsStore) GetSessionByTokenHash(ctx context.Context, data *SessionData) error {
+	args := m.Called(ctx, data)
+	return args.Error(0)
+}
+
+// --- MockRolesStore ---
 
 type MockRolesStore struct {
 	mock.Mock
@@ -100,25 +159,22 @@ type MockRolesStore struct {
 
 func (s *MockRolesStore) GetRoleByName(ctx context.Context, name string) (*Role, error) {
 	args := s.Called(ctx, name)
-
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-
 	return args.Get(0).(*Role), args.Error(1)
 }
 
 func (s *MockRolesStore) GetRoleByID(ctx context.Context, roleID int64) (*Role, error) {
 	args := s.Called(ctx, roleID)
-
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-
 	return args.Get(0).(*Role), args.Error(1)
 }
 
-// MockUserStore — динамічний мок для Users
+// --- MockUserStore ---
+
 type MockUserStore struct {
 	mock.Mock
 }

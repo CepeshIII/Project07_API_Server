@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../api";
-import type { PostWithMetadata } from "../api";
+import type { PostFeedItem } from "../api";
 import { CreatePostForm } from "../components/CreatePostForm";
 
 export const HomePage = () => {
-    const [posts, setPosts] = useState<PostWithMetadata[]>([]);
+    const [posts, setPosts] = useState<PostFeedItem[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
     const loadPosts = async () => {
@@ -62,29 +62,28 @@ export const HomePage = () => {
 
                 <div className="post-list">
                     {posts.map((item) => {
-                        const post = item.post_data;
 
                         return (
-                            <article className="card feed-post" key={post.id}>
+                            <article className="card feed-post" key={item.id}>
                                 <div className="post-author">
-                                    <Link to={`/users/${post.user.id}`}>
-                                        {post.user.username}
+                                    <Link to={`/users/${item.user_summary.id}`}>
+                                        {item.user_summary.username}
                                     </Link>
 
                                     <span>
-                                        {new Date(post.created_at).toLocaleString()}
+                                        {new Date(item.created_at).toLocaleString()}
                                     </span>
                                 </div>
 
-                                <Link to={`/posts/${post.id}`}>
-                                    <h2>{post.title}</h2>
+                                <Link to={`/posts/${item.id}`}>
+                                    <h2>{item.title}</h2>
                                 </Link>
 
-                                <p className="post-content">{post.content}</p>
+                                <p className="post-content">{item.content}</p>
 
-                                {post.tags?.length > 0 && (
+                                {item.tags?.length > 0 && (
                                     <div className="tags">
-                                        {post.tags.map((tag) => (
+                                        {item.tags.map((tag) => (
                                             <span key={tag}>#{tag}</span>
                                         ))}
                                     </div>

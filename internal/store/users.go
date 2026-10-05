@@ -19,6 +19,11 @@ type User struct {
 	RoleID    int64    `json:"role_id"`
 }
 
+type UserSummary struct {
+	ID       int64  `json:"id"`
+	Username string `json:"username"`
+}
+
 type password struct {
 	text *string
 	hash []byte

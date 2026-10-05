@@ -39,7 +39,8 @@ type UpdatePostPayload struct {
 func (app *application) createPostHandler(w http.ResponseWriter, r *http.Request) {
 	userId, err := getAuthUserIDFromCtx(r)
 	if err != nil {
-		app.badRequestResponse(w, r, err)
+		// This should not happen if the middleware is working correctly
+		app.internalServerError(w, r, err)
 		return
 	}
 
@@ -54,7 +55,7 @@ func (app *application) createPostHandler(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	post := &store.Post{
+	post := &store.PostModel{
 		Title:   payload.Title,
 		Content: payload.Content,
 		Tags:    payload.Tags,
@@ -90,7 +91,12 @@ func (app *application) createPostHandler(w http.ResponseWriter, r *http.Request
 //	@Router			/posts/{id} [get]
 func (app *application) getPostHandler(w http.ResponseWriter, r *http.Request) {
 	// Get post from database
-	post := getPostFromCtx(r)
+	post, err := getPostFromCtx(r)
+	if err != nil {
+		// This should not happen if the middleware is working correctly
+		app.internalServerError(w, r, err)
+		return
+	}
 
 	// Get comments for post from database
 	comments, err := app.store.Comments.GetByPostID(r.Context(), post.ID)
@@ -138,7 +144,7 @@ func (app *application) getAllPostsHandler(w http.ResponseWriter, r *http.Reques
 		Query:  "",
 	}
 
-	posts, err := app.store.Posts.GetAllPosts(r.Context(), fq)
+	postsFeed, err := app.store.Posts.GetAllPosts(r.Context(), fq)
 	if err != nil {
 		switch {
 		case errors.Is(err, store.ErrNotFound):
@@ -150,44 +156,7 @@ func (app *application) getAllPostsHandler(w http.ResponseWriter, r *http.Reques
 	}
 
 	// Write responce
-	if err := app.jsonResponse(w, http.StatusOK, posts); err != nil {
-		app.internalServerError(w, r, err)
-		return
-	}
-}
-
-// GetPostComments godoc
-//
-//	@Summary		Fetches a post comments
-//	@Description	Fetches a post comments by ID
-//	@Tags			posts
-//	@Accept			json
-//	@Produce		json
-//	@Param			id	path		int	true	"Post ID"
-//	@Success		200	{object}	CommentsEnvelope
-//	@Failure		400	{object}	ErrorEnvelope
-//	@Failure		404	{object}	ErrorEnvelope
-//	@Failure		500	{object}	ErrorEnvelope
-//	@Security		ApiKeyAuth
-//	@Router			/posts/{id}/comments [get]
-func (app *application) getPostCommentsHandler(w http.ResponseWriter, r *http.Request) {
-	// Get post from database
-	post := getPostFromCtx(r)
-
-	ctx := r.Context()
-	comments, err := app.store.Comments.GetByPostID(ctx, post.ID)
-	if err != nil {
-		switch {
-		case errors.Is(err, store.ErrNotFound):
-			comments = make([]store.CommentWithUser, 0)
-			// app.notFoundResponse(w, r, err)
-		default:
-			app.internalServerError(w, r, err)
-			return
-		}
-	}
-
-	if err := app.jsonResponse(w, http.StatusOK, comments); err != nil {
+	if err := app.jsonResponse(w, http.StatusOK, postsFeed); err != nil {
 		app.internalServerError(w, r, err)
 		return
 	}
@@ -211,12 +180,18 @@ func (app *application) getPostCommentsHandler(w http.ResponseWriter, r *http.Re
 func (app *application) createCommentHandler(w http.ResponseWriter, r *http.Request) {
 	userId, err := getAuthUserIDFromCtx(r)
 	if err != nil {
-		app.badRequestResponse(w, r, err)
+		// This should not happen if the middleware is working correctly
+		app.internalServerError(w, r, err)
 		return
 	}
 
-	// Get post from database
-	post := getPostFromCtx(r)
+	// Get postID from database
+	postID, err := getPostIDFromCtx(r)
+	if err != nil {
+		// This should not happen if the middleware is working correctly
+		app.internalServerError(w, r, err)
+		return
+	}
 	ctx := r.Context()
 
 	var payload CreateCommentPayload
@@ -231,7 +206,7 @@ func (app *application) createCommentHandler(w http.ResponseWriter, r *http.Requ
 	}
 
 	comment := &store.Comment{
-		PostID:  post.ID,
+		PostID:  postID,
 		UserID:  userId,
 		Content: payload.Content,
 	}
@@ -248,6 +223,47 @@ func (app *application) createCommentHandler(w http.ResponseWriter, r *http.Requ
 	}
 }
 
+// GetPostComments godoc
+//
+//	@Summary		Fetches a post comments
+//	@Description	Fetches a post comments by ID
+//	@Tags			posts
+//	@Accept			json
+//	@Produce		json
+//	@Param			id	path		int	true	"Post ID"
+//	@Success		200	{object}	CommentsEnvelope
+//	@Failure		400	{object}	ErrorEnvelope
+//	@Failure		404	{object}	ErrorEnvelope
+//	@Failure		500	{object}	ErrorEnvelope
+//	@Security		ApiKeyAuth
+//	@Router			/posts/{id}/comments [get]
+func (app *application) getPostCommentsHandler(w http.ResponseWriter, r *http.Request) {
+	// Get post from database
+	postID, err := getPostIDFromCtx(r)
+	if err != nil {
+		app.internalServerError(w, r, err)
+		return
+	}
+
+	ctx := r.Context()
+	comments, err := app.store.Comments.GetByPostID(ctx, postID)
+	if err != nil {
+		switch {
+		case errors.Is(err, store.ErrNotFound):
+			comments = make([]store.CommentWithUser, 0)
+			// app.notFoundResponse(w, r, err)
+		default:
+			app.internalServerError(w, r, err)
+			return
+		}
+	}
+
+	if err := app.jsonResponse(w, http.StatusOK, comments); err != nil {
+		app.internalServerError(w, r, err)
+		return
+	}
+}
+
 // UpdatePost godoc
 //
 //	@Summary		Update a post
@@ -257,7 +273,7 @@ func (app *application) createCommentHandler(w http.ResponseWriter, r *http.Requ
 //	@Produce		json
 //	@Param			id		path		int					true	"Post ID"
 //	@Param			post	body		UpdatePostPayload	true	"Update post request"
-//	@Success		201		{object}	store.Post
+//	@Success		201		{object}	MessageEnvelope
 //	@Failure		400		{object}	ErrorEnvelope
 //	@Failure		404		{object}	ErrorEnvelope
 //	@Failure		500		{object}	ErrorEnvelope
@@ -265,11 +281,9 @@ func (app *application) createCommentHandler(w http.ResponseWriter, r *http.Requ
 //	@Router			/posts/{id} [patch]
 func (app *application) updatePostHandler(w http.ResponseWriter, r *http.Request) {
 	// Get post from database
-	post := getPostFromCtx(r)
-
-	// Parse post ID
-	id, err := parsePostID(r)
+	postID, err := getPostIDFromCtx(r)
 	if err != nil {
+		// This should not happen if the middleware is working correctly
 		app.internalServerError(w, r, err)
 		return
 	}
@@ -286,18 +300,21 @@ func (app *application) updatePostHandler(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	updatePostRequest := &store.UpdatePostRequest{
+		Tags: payload.Tags,
+	}
+
 	if payload.Title != "" {
-		post.Title = payload.Title
+		updatePostRequest.Title = payload.Title
 	}
+
 	if payload.Content != "" {
-		post.Content = payload.Content
+		updatePostRequest.Content = payload.Content
 	}
-	post.Tags = payload.Tags
-	post.UserID = int64(1)
 
 	// Try patch post data to database
 	ctx := r.Context()
-	if err := app.store.Posts.Update(ctx, id, post); err != nil {
+	if err := app.store.Posts.Update(ctx, postID, updatePostRequest); err != nil {
 		switch {
 		case errors.Is(err, store.ErrNotFound):
 			app.notFoundResponse(w, r, err)
@@ -308,7 +325,7 @@ func (app *application) updatePostHandler(w http.ResponseWriter, r *http.Request
 	}
 
 	// Write responce
-	if err := app.jsonResponse(w, http.StatusCreated, post); err != nil {
+	if err := app.jsonResponse(w, http.StatusCreated, "OK"); err != nil {
 		app.internalServerError(w, r, err)
 		return
 	}
@@ -329,12 +346,16 @@ func (app *application) updatePostHandler(w http.ResponseWriter, r *http.Request
 //	@Security		ApiKeyAuth
 //	@Router			/posts/{id} [delete]
 func (app *application) deletePostHandler(w http.ResponseWriter, r *http.Request) {
-	// Get post from database
-	post := getPostFromCtx(r)
+	// Get postID from database
+	postID, err := getPostIDFromCtx(r)
+	if err != nil {
+		app.internalServerError(w, r, err)
+		return
+	}
 
 	ctx := r.Context()
 	// Try delete comments for post from database
-	if err := app.store.Comments.DeleteByPostID(ctx, post.ID); err != nil {
+	if err := app.store.Comments.DeleteByPostID(ctx, postID); err != nil {
 		switch {
 		case errors.Is(err, store.ErrNotFound):
 			app.notFoundResponse(w, r, err)
@@ -345,7 +366,7 @@ func (app *application) deletePostHandler(w http.ResponseWriter, r *http.Request
 	}
 
 	// Try delete post from database
-	if err := app.store.Posts.Delete(ctx, post.ID); err != nil {
+	if err := app.store.Posts.Delete(ctx, postID); err != nil {
 		switch {
 		case errors.Is(err, store.ErrNotFound):
 			app.notFoundResponse(w, r, err)

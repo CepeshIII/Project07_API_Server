@@ -155,9 +155,10 @@ func (app *application) mount() http.Handler {
 			})
 
 			r.Route("/{postsID}", func(r chi.Router) {
-				r.Use(app.postContextMiddleware)
+				r.Use(app.postIDContextMiddleware)
+				// r.Use(app.postContextMiddleware)
 
-				r.Get("/", app.getPostHandler)
+				r.With(app.postContextMiddleware).Get("/", app.getPostHandler)
 				r.Get("/comments", app.getPostCommentsHandler)
 
 				r.Group(func(r chi.Router) {

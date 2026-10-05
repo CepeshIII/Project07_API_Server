@@ -101,8 +101,19 @@ export const GetUserPage = () => {
                 <div className="profile-actions">
                     <button
                         onClick={async () => {
-                            await api.follow(userData.id);
-                            alert("Followed");
+                            try {
+                                await api.follow(userData.id);
+                                alert("Followed");
+                            } catch (error) {
+                                alert(
+                                    error instanceof Error
+                                        ? error.message
+                                        : "Failed to follow."
+                                );
+                                return;
+                            } finally {
+                                setLoading(false);
+                            }
                         }}
                     >
                         Follow
@@ -111,8 +122,21 @@ export const GetUserPage = () => {
                     <button
                         className="secondary"
                         onClick={async () => {
-                            await api.unfollow(userData.id);
-                            alert("Unfollowed");
+                            try {
+                                await api.unfollow(userData.id);
+                                alert("Unfollowed");
+                            } catch (error) {
+                                alert(
+                                    error instanceof Error
+                                        ? error.message
+                                        : "Failed to unfollow."
+                                );
+
+                                return;
+                            } finally {
+                                setLoading(false);
+                            }
+
                         }}
                     >
                         Unfollow
@@ -123,7 +147,7 @@ export const GetUserPage = () => {
             <section className="card">
                 <h2>Followers</h2>
 
-                {followers.length === 0 ? (
+                {followers === null || followers.length === 0 ? (
                     <p className="muted">
                         This user has no followers.
                     </p>
@@ -131,10 +155,9 @@ export const GetUserPage = () => {
                     <div className="followers">
                         {followers.map((follower) => (
                             <Link
-                                key={`${follower.user_id}-${follower.follower_id}`}
-                                to={`/users/${follower.follower_id}`}
+                                to={`/users/${follower.user_summary.id}`}
                             >
-                                User #{follower.follower_id}
+                                {follower.user_summary.username}
                             </Link>
                         ))}
                     </div>

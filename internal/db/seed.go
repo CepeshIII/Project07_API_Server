@@ -188,10 +188,10 @@ func generateUsers(count int) []*store.UserWithRole {
 	return users
 }
 
-func generatePosts(count int) []*store.Post {
-	posts := make([]*store.Post, 0, count)
+func generatePosts(count int) []*store.PostModel {
+	posts := make([]*store.PostModel, 0, count)
 	for i := 1; i <= count; i++ {
-		posts = append(posts, &store.Post{
+		posts = append(posts, &store.PostModel{
 			// ID:      int64(i),
 			Title:   postTitles[rand.Intn(len(postTitles))],
 			Content: postContents[rand.Intn(len(postContents))],
@@ -218,10 +218,10 @@ func generateComments(count int) []*store.Comment {
 	return comments
 }
 
-func generateFollowers(usersCount int, minFollowerCount int, maxFollowerCount int) []*store.Follower {
+func generateFollowers(usersCount int, minFollowerCount int, maxFollowerCount int) []*store.FollowerModel {
 	rand.Uint32()
 
-	followers := make([]*store.Follower, 0, usersCount)
+	followers := make([]*store.FollowerModel, 0, usersCount)
 	var usersFollowersID = map[int]int{}
 
 	for userID := 1; userID <= usersCount; userID++ {
@@ -243,7 +243,7 @@ func generateFollowers(usersCount int, minFollowerCount int, maxFollowerCount in
 			if !ok {
 				usersFollowersID[newFollowersID] = 1
 				currentFollowersCount++
-				followers = append(followers, &store.Follower{
+				followers = append(followers, &store.FollowerModel{
 					UserID:     int64(userID),
 					FollowerID: int64(newFollowersID),
 				})
