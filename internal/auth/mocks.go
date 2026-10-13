@@ -1,6 +1,8 @@
 package auth
 
-import "github.com/stretchr/testify/mock"
+import (
+	"github.com/stretchr/testify/mock"
+)
 
 type MockAuthenticator struct {
 	mock.Mock
@@ -11,7 +13,13 @@ func (m *MockAuthenticator) GenerateToken(claims CustomClaims) (string, error) {
 	if args.Get(0) == nil {
 		return "", args.Error(1)
 	}
-	return args.Get(0).(string), args.Error(1)
+
+	token, ok := args.Get(0).(string)
+	if !ok {
+		return "", args.Error(1)
+	}
+
+	return token, args.Error(1)
 }
 
 func (m *MockAuthenticator) ValidateToken(tokenString string) (*CustomClaims, error) {
@@ -19,5 +27,11 @@ func (m *MockAuthenticator) ValidateToken(tokenString string) (*CustomClaims, er
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*CustomClaims), args.Error(1)
+
+	claims, ok := args.Get(0).(*CustomClaims)
+	if !ok {
+		return nil, args.Error(1)
+	}
+
+	return claims, args.Error(1)
 }

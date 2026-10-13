@@ -17,11 +17,10 @@ func TestRateLimiterIntegration(t *testing.T) {
 	limit := 1
 	window := 2 * time.Second
 
-	// Use the real limiter instead of the mock
 	limiter := ratelimiter.NewFixedWindowRateLimiter(limit, window)
 
 	app := &application{
-		rateLimiter: limiter, // Ensure your app struct uses an interface type: RateLimiter
+		rateLimiter: limiter,
 		logger:      zap.NewNop().Sugar(),
 	}
 
@@ -31,14 +30,14 @@ func TestRateLimiterIntegration(t *testing.T) {
 	}))
 
 	// 1. First request should succeed
-	req1 := httptest.NewRequest("GET", "/", nil)
+	req1 := httptest.NewRequest(http.MethodGet, "/", nil)
 	req1.RemoteAddr = ip
 	rr1 := httptest.NewRecorder()
 	r.ServeHTTP(rr1, req1)
 	assert.Equal(t, http.StatusOK, rr1.Code)
 
 	// 2. Second request should be rate-limited
-	req2 := httptest.NewRequest("GET", "/", nil)
+	req2 := httptest.NewRequest(http.MethodGet, "/", nil)
 	req2.RemoteAddr = ip
 	rr2 := httptest.NewRecorder()
 	r.ServeHTTP(rr2, req2)

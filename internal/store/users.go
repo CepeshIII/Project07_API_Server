@@ -4,13 +4,16 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"time"
 
+	"github.com/lib/pq"
 	"golang.org/x/crypto/bcrypt"
 )
 
+// User represents a system user account.
 type User struct {
-	ID        int64    `json:"id" example:"1"`
+	ID        int64    `example:"1"       json:"id"`
 	Username  string   `json:"username"`
 	Email     string   `json:"email"`
 	Password  password `json:"-"`
@@ -19,6 +22,7 @@ type User struct {
 	RoleID    int64    `json:"role_id"`
 }
 
+// UserSummary represents a minimal view of a user for listings or references.
 type UserSummary struct {
 	ID       int64  `json:"id"`
 	Username string `json:"username"`
@@ -27,6 +31,11 @@ type UserSummary struct {
 type password struct {
 	text *string
 	hash []byte
+}
+
+// UserStore handles database operations for users and invitations.
+type UserStore struct {
+	db *sql.DB
 }
 
 func (p *password) Set(text string) error {
@@ -48,57 +57,16 @@ func (p *password) CheckHash(text string) bool {
 }
 
 func (p *password) generateHashFromPassword(text string) ([]byte, error) {
-	return bcrypt.GenerateFromPassword([]byte(text), bcrypt.DefaultCost)
-}
-
-type UserStore struct {
-	db *sql.DB
-}
-
-func (s *UserStore) create(ctx context.Context, tx *sql.Tx, userWithRole *UserWithRole) error {
-	query := `
-	INSERT INTO users (username, email, password, role_id)
-	SELECT $1, $2, $3, r.id
-	FROM roles r
-	WHERE r.name = $4
-	RETURNING id, created_at, role_id
-	`
-
-	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
-	defer cancel()
-
-	if userWithRole.Role.Name == "" {
-		userWithRole.Role.Name = "user"
-	}
-
-	err := tx.QueryRowContext(
-		ctx,
-		query,
-		userWithRole.Username,
-		userWithRole.Email,
-		userWithRole.Password.hash,
-		userWithRole.Role.Name,
-	).Scan(
-		&userWithRole.ID,
-		&userWithRole.CreatedAt,
-		&userWithRole.RoleID,
-	)
+	hash, err := bcrypt.GenerateFromPassword([]byte(text), bcrypt.DefaultCost)
 
 	if err != nil {
-		switch {
-		case err.Error() == `pq: duplicate key value violates unique constraint "users_username_key" (23505)`:
-			return ErrorDuplicateUsername
-		case err.Error() == `pq: duplicate key value violates unique constraint "users_email_key" (23505)`:
-			return ErrorDuplicateEmail
-		default:
-			return err
-		}
-
+		return nil, fmt.Errorf("failed to generate hash from password: %w", err)
 	}
 
-	return err
+	return hash, nil
 }
 
+// Get fetches a user by their unique identifier.
 func (s *UserStore) Get(ctx context.Context, userID int64) (*User, error) {
 	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
 	defer cancel()
@@ -125,15 +93,16 @@ func (s *UserStore) Get(ctx context.Context, userID int64) (*User, error) {
 		case errors.Is(err, sql.ErrNoRows):
 			return nil, ErrNotFound
 		default:
-			return nil, err
+			return nil, fmt.Errorf("failed to get user by userID %v: %w", userID, err)
 		}
 	}
 
 	return &user, nil
 }
 
+// CreateAndInvite creates a new user record and generates an invitation token within a transaction.
 func (s *UserStore) CreateAndInvite(ctx context.Context, user *UserWithRole, token string, exp time.Duration) error {
-	return withTx(s.db, ctx, func(tx *sql.Tx) error {
+	return withTx(ctx, s.db, func(tx *sql.Tx) error {
 		if err := s.create(ctx, tx, user); err != nil {
 			return err
 		}
@@ -148,9 +117,10 @@ func (s *UserStore) CreateAndInvite(ctx context.Context, user *UserWithRole, tok
 
 }
 
+// ActivateAndClean verifies an invitation token, activates the user account, and removes the token.
 func (s *UserStore) ActivateAndClean(ctx context.Context, token string) error {
-	return withTx(s.db, ctx, func(tx *sql.Tx) error {
-		userID, err := s.getUserIdFromInvitationAndCleanIt(ctx, tx, token)
+	return withTx(ctx, s.db, func(tx *sql.Tx) error {
+		userID, err := s.getUserIDFromInvitationAndCleanIt(ctx, tx, token)
 		if err != nil {
 			return err
 		}
@@ -159,84 +129,7 @@ func (s *UserStore) ActivateAndClean(ctx context.Context, token string) error {
 	})
 }
 
-func (s *UserStore) getUserIdFromInvitationAndCleanIt(ctx context.Context, tx *sql.Tx, token string) (int64, error) {
-	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
-	defer cancel()
-
-	query := `
-	DELETE FROM user_invitations
-	WHERE token = $1 AND expires_at > $2
-	RETURNING user_id
-	`
-	userID := int64(0)
-	err := tx.QueryRowContext(
-		ctx,
-		query,
-		[]byte(token),
-		time.Now(),
-	).Scan(&userID)
-
-	if err != nil {
-		switch {
-		case errors.Is(err, sql.ErrNoRows):
-			return userID, ErrorInvalidToken
-		default:
-			return userID, err
-		}
-	}
-
-	return userID, err
-}
-
-func (s *UserStore) activateUserByUserID(ctx context.Context, tx *sql.Tx, userId int64) error {
-	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
-	defer cancel()
-
-	query := `
-	UPDATE users
-	SET is_active = TRUE
-	WHERE id = $1
-	`
-	result, err := tx.ExecContext(ctx, query, userId)
-	if err != nil {
-		return err
-	}
-
-	rows, err := result.RowsAffected()
-	if err != nil {
-		return err
-	}
-
-	if rows == 0 {
-		return sql.ErrNoRows
-	}
-
-	return nil
-}
-
-func (s *UserStore) createUserInvitation(ctx context.Context, tx *sql.Tx, userID int64, token string, exp time.Duration) error {
-	query := `
-	INSERT INTO user_invitations (token, user_id, expires_at)
-	VALUES ($1, $2, $3)
-	`
-	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
-	defer cancel()
-
-	_, err := tx.ExecContext(
-		ctx,
-		query,
-		token,
-		userID,
-		time.Now().Add(exp),
-	)
-
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
+// DeleteUser removes a user record by its unique identifier.
 func (s *UserStore) DeleteUser(ctx context.Context, userID int64) error {
 	query := `
 	DELETE FROM users
@@ -256,13 +149,14 @@ func (s *UserStore) DeleteUser(ctx context.Context, userID int64) error {
 		case errors.Is(err, sql.ErrNoRows):
 			return ErrNotFound
 		default:
-			return err
+			return fmt.Errorf("failed to delete user by userID %v: %w", userID, err)
 		}
 	}
 
 	return nil
 }
 
+// DeleteInvitation removes any pending invitation records associated with a user ID.
 func (s *UserStore) DeleteInvitation(ctx context.Context, userID int64) error {
 	query := `
 	DELETE FROM user_invitations
@@ -278,12 +172,13 @@ func (s *UserStore) DeleteInvitation(ctx context.Context, userID int64) error {
 	)
 
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to delete invitation by userID %v: %w", userID, err)
 	}
 
 	return nil
 }
 
+// GetByUsername retrieves an active user by their unique username.
 func (s *UserStore) GetByUsername(ctx context.Context, username string) (*User, error) {
 	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
 	defer cancel()
@@ -309,12 +204,14 @@ func (s *UserStore) GetByUsername(ctx context.Context, username string) (*User, 
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrNotFound
 		}
-		return nil, err
+
+		return nil, fmt.Errorf("failed to get user by username %s: %w", username, err)
 	}
 
 	return user, nil
 }
 
+// GetByEmail retrieves an active user by their email address.
 func (s *UserStore) GetByEmail(ctx context.Context, email string) (*User, error) {
 	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
 	defer cancel()
@@ -342,18 +239,21 @@ func (s *UserStore) GetByEmail(ctx context.Context, email string) (*User, error)
 			return nil, ErrNotFound
 
 		}
-		return nil, err
+
+		return nil, fmt.Errorf("failed to get user by email %s: %w", email, err)
 	}
 
 	return user, nil
 }
 
+// DeleteUserAndInvitation deletes both the user record and associated invitations.
 func (s *UserStore) DeleteUserAndInvitation(ctx context.Context, userID int64) error {
 	err := errors.Join(s.DeleteUser(ctx, userID), s.DeleteInvitation(ctx, userID))
 
 	return err
 }
 
+// GetUserWithRole retrieves an active user along with their associated role details.
 func (s *UserStore) GetUserWithRole(ctx context.Context, userID int64) (*UserWithRole, error) {
 	userWithRole := UserWithRole{}
 
@@ -395,9 +295,133 @@ func (s *UserStore) GetUserWithRole(ctx context.Context, userID int64) (*UserWit
 		case errors.Is(err, sql.ErrNoRows):
 			return nil, ErrNotFound
 		default:
-			return nil, err
+			return nil, fmt.Errorf("failed to get userWithRole by id %d: %w", userID, err)
 		}
 	}
 
 	return &userWithRole, nil
+}
+
+func (s *UserStore) create(ctx context.Context, tx *sql.Tx, userWithRole *UserWithRole) error {
+	query := `
+	INSERT INTO users (username, email, password, role_id)
+	SELECT $1, $2, $3, r.id
+	FROM roles r
+	WHERE r.name = $4
+	RETURNING id, created_at, role_id
+	`
+
+	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
+	defer cancel()
+
+	if userWithRole.Role.Name == "" {
+		userWithRole.Role.Name = "user"
+	}
+
+	err := tx.QueryRowContext(
+		ctx,
+		query,
+		userWithRole.Username,
+		userWithRole.Email,
+		userWithRole.Password.hash,
+		userWithRole.Role.Name,
+	).Scan(
+		&userWithRole.ID,
+		&userWithRole.CreatedAt,
+		&userWithRole.RoleID,
+	)
+
+	if err != nil {
+		var pgErr *pq.Error
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" { // Unique violation code in Postgres
+			switch pgErr.Constraint {
+			case "users_username_key":
+				return ErrDuplicateUsername
+			case "users_email_key":
+				return ErrDuplicateEmail
+			}
+		}
+
+		return fmt.Errorf("failed to create user %s: %w", userWithRole.Username, err)
+	}
+
+	return nil
+}
+
+func (s *UserStore) getUserIDFromInvitationAndCleanIt(ctx context.Context, tx *sql.Tx, token string) (int64, error) {
+	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
+	defer cancel()
+
+	query := `
+	DELETE FROM user_invitations
+	WHERE token = $1 AND expires_at > $2
+	RETURNING user_id
+	`
+	userID := int64(0)
+	err := tx.QueryRowContext(
+		ctx,
+		query,
+		[]byte(token),
+		time.Now(),
+	).Scan(&userID)
+
+	if err != nil {
+		switch {
+		case errors.Is(err, sql.ErrNoRows):
+			return 0, ErrInvalidToken
+		default:
+			return 0, fmt.Errorf("failed to consume user invitation: %w", err)
+		}
+	}
+
+	return userID, nil
+}
+
+func (s *UserStore) activateUserByUserID(ctx context.Context, tx *sql.Tx, userID int64) error {
+	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
+	defer cancel()
+
+	query := `
+	UPDATE users
+	SET is_active = TRUE
+	WHERE id = $1
+	`
+	result, err := tx.ExecContext(ctx, query, userID)
+	if err != nil {
+		return fmt.Errorf("failed to execute user activation query for user %d: %w", userID, err)
+	}
+
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected for user activation %d: %w", userID, err)
+	}
+
+	if rows == 0 {
+		return sql.ErrNoRows
+	}
+
+	return nil
+}
+
+func (s *UserStore) createUserInvitation(ctx context.Context, tx *sql.Tx, userID int64, token string, exp time.Duration) error {
+	query := `
+	INSERT INTO user_invitations (token, user_id, expires_at)
+	VALUES ($1, $2, $3)
+	`
+	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
+	defer cancel()
+
+	_, err := tx.ExecContext(
+		ctx,
+		query,
+		token,
+		userID,
+		time.Now().Add(exp),
+	)
+
+	if err != nil {
+		return fmt.Errorf("failed to create user invitation for user %d: %w", userID, err)
+	}
+
+	return nil
 }

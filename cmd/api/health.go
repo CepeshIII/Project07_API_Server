@@ -5,9 +5,9 @@ import (
 )
 
 type HealthCheckData struct {
-	Status  string `json:"status" example:"ok"`
-	Env     string `json:"env" example:"development"`
-	Version string `json:"version" example:"1.0.0"`
+	Status  string `example:"ok"          json:"status"`
+	Env     string `example:"development" json:"env"`
+	Version string `example:"1.0.0"       json:"version"`
 }
 
 // HealthCheck godoc
@@ -23,7 +23,7 @@ type HealthCheckData struct {
 func (app *application) healthCheckHandler(w http.ResponseWriter, r *http.Request) {
 	data := HealthCheckData{
 		Status:  "ok",
-		Env:     app.config.env,
+		Env:     app.config.Env,
 		Version: version,
 	}
 

@@ -4,13 +4,14 @@ import (
 	"errors"
 	"net/http"
 
+	"github.com/CepeshIII/Project07_API_Server/internal/credential"
 	"github.com/CepeshIII/Project07_API_Server/internal/store"
 
 	"github.com/go-chi/chi/v5"
 )
 
 type FollowUserPayload struct {
-	UserID int64 `json:"user_id" example:"1"`
+	UserID int64 `example:"1" json:"user_id"`
 }
 
 // GetUser godoc
@@ -32,11 +33,13 @@ func (app *application) getUserHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		// This should not happen if the middleware is working correctly
 		app.internalServerError(w, r, err)
+
 		return
 	}
 
 	if err := app.jsonResponse(w, http.StatusOK, targetUser); err != nil {
 		app.internalServerError(w, r, err)
+
 		return
 	}
 }
@@ -57,25 +60,27 @@ func (app *application) getUserHandler(w http.ResponseWriter, r *http.Request) {
 func (app *application) activateUserHandler(w http.ResponseWriter, r *http.Request) {
 	// Extract the token from the URL path and hash it for comparison with the stored hash in the database
 	token := chi.URLParam(r, "token")
-	tokenHash := HashToken(token)
+	tokenHash := credential.Hash(token)
 
 	// Activate the user and clean up the invitation token from the database
-	err := app.store.Users.ActivateAndClean(r.Context(), string(tokenHash))
+	err := app.store.Users.ActivateAndClean(r.Context(), tokenHash)
 	if err != nil {
 		switch {
 		case errors.Is(err, store.ErrNotFound):
 			app.notFoundResponse(w, r, err)
-		case errors.Is(err, store.ErrorInvalidToken):
+		case errors.Is(err, store.ErrInvalidToken):
 			app.badRequestResponse(w, r, err)
 		default:
 			app.internalServerError(w, r, err)
 		}
+
 		return
 	}
 
 	// Respond with a success message
 	if err := app.jsonResponse(w, http.StatusOK, "User activated"); err != nil {
 		app.internalServerError(w, r, err)
+
 		return
 	}
 }
@@ -100,6 +105,7 @@ func (app *application) followUserHandler(w http.ResponseWriter, r *http.Request
 	if err != nil {
 		// This should not happen if the middleware is working correctly
 		app.internalServerError(w, r, err)
+
 		return
 	}
 
@@ -108,29 +114,34 @@ func (app *application) followUserHandler(w http.ResponseWriter, r *http.Request
 	if err != nil {
 		// This should not happen if the middleware is working correctly
 		app.internalServerError(w, r, errAuthUserMissing)
+
 		return
 	}
 
 	// Prevent user from following themselves
 	if targetUser.ID == followerID {
-		app.badRequestResponse(w, r, errors.New("you cannot follow yourself"))
+		app.badRequestResponse(w, r, errCannotFollowYourself)
+
 		return
 	}
 
 	// create a relationship where followerID follows targetUser.ID
 	err = app.store.Followers.FollowUser(r.Context(), followerID, targetUser.ID)
 	if err != nil {
-		if errors.Is(err, store.ErrorConflict) {
+		if errors.Is(err, store.ErrResourceConflict) {
 			app.conflictResponse(w, r, err)
+
 			return
 		}
 
 		app.internalServerError(w, r, err)
+
 		return
 	}
 
 	if err := app.jsonResponse(w, http.StatusCreated, "User followed"); err != nil {
 		app.internalServerError(w, r, err)
+
 		return
 	}
 }
@@ -155,6 +166,7 @@ func (app *application) unfollowUserHandler(w http.ResponseWriter, r *http.Reque
 	if err != nil {
 		// This should not happen if the middleware is working correctly
 		app.internalServerError(w, r, err)
+
 		return
 	}
 
@@ -163,12 +175,14 @@ func (app *application) unfollowUserHandler(w http.ResponseWriter, r *http.Reque
 	if err != nil {
 		// This should not happen if the middleware is working correctly
 		app.internalServerError(w, r, errAuthUserMissing)
+
 		return
 	}
 
 	// Prevent user from unfollowing themselves
 	if targetUser.ID == followerID {
-		app.badRequestResponse(w, r, errors.New("you cannot unfollow yourself"))
+		app.badRequestResponse(w, r, errCannotUnfollowYourself)
+
 		return
 	}
 
@@ -177,15 +191,18 @@ func (app *application) unfollowUserHandler(w http.ResponseWriter, r *http.Reque
 	if err != nil {
 		if errors.Is(err, store.ErrNotFound) {
 			app.notFoundResponse(w, r, err)
+
 			return
 		}
 
 		app.internalServerError(w, r, err)
+
 		return
 	}
 
 	if err := app.jsonResponse(w, http.StatusCreated, "User unfollowed"); err != nil {
 		app.internalServerError(w, r, err)
+
 		return
 	}
 }
@@ -210,17 +227,20 @@ func (app *application) getFollowersHandler(w http.ResponseWriter, r *http.Reque
 	if err != nil {
 		// This should not happen if the middleware is working correctly
 		app.internalServerError(w, r, err)
+
 		return
 	}
 
 	followers, err := app.store.Followers.GetFollowers(r.Context(), currentUser.ID)
 	if err != nil {
 		app.internalServerError(w, r, err)
+
 		return
 	}
 
 	if err := app.jsonResponse(w, http.StatusOK, followers); err != nil {
 		app.internalServerError(w, r, err)
+
 		return
 	}
 }
@@ -240,16 +260,19 @@ func (app *application) deleteUserHandler(w http.ResponseWriter, r *http.Request
 	targetUser, err := getTargetUserFromCtx(r)
 	if err != nil {
 		app.internalServerError(w, r, err)
+
 		return
 	}
 
 	err = app.store.Users.DeleteUser(r.Context(), targetUser.ID)
 	if err != nil {
 		app.internalServerError(w, r, err)
+
 		return
 	}
 
-	if err = app.jsonResponse(w, http.StatusOK, "User deleted"); err != nil {
+	err = app.jsonResponse(w, http.StatusOK, "User deleted")
+	if err != nil {
 		app.internalServerError(w, r, err)
 	}
 }

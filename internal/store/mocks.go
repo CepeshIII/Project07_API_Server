@@ -26,6 +26,7 @@ type MockPostStore struct {
 
 func (m *MockPostStore) Create(ctx context.Context, post *PostModel) error {
 	args := m.Called(ctx, post)
+
 	return args.Error(0)
 }
 
@@ -34,7 +35,13 @@ func (m *MockPostStore) GetPost(ctx context.Context, id int64) (*Post, error) {
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*Post), args.Error(1)
+
+	post, ok := args.Get(0).(*Post)
+	if !ok {
+		return nil, args.Error(1)
+	}
+
+	return post, args.Error(1)
 }
 
 func (m *MockPostStore) GetPostModel(ctx context.Context, id int64) (*PostModel, error) {
@@ -42,16 +49,24 @@ func (m *MockPostStore) GetPostModel(ctx context.Context, id int64) (*PostModel,
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*PostModel), args.Error(1)
+
+	postModel, ok := args.Get(0).(*PostModel)
+	if !ok {
+		return nil, args.Error(1)
+	}
+
+	return postModel, args.Error(1)
 }
 
 func (m *MockPostStore) Update(ctx context.Context, id int64, req *UpdatePostRequest) error {
 	args := m.Called(ctx, id, req)
+
 	return args.Error(0)
 }
 
 func (m *MockPostStore) Delete(ctx context.Context, id int64) error {
 	args := m.Called(ctx, id)
+
 	return args.Error(0)
 }
 
@@ -60,7 +75,13 @@ func (m *MockPostStore) GetUserFeed(ctx context.Context, userID int64, query Pag
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).([]*PostFeedItem), args.Error(1)
+
+	postFeedItems, ok := args.Get(0).([]*PostFeedItem)
+	if !ok {
+		return nil, args.Error(1)
+	}
+
+	return postFeedItems, args.Error(1)
 }
 
 func (m *MockPostStore) GetAllPosts(ctx context.Context, query PaginatedFeedQuery) ([]*PostFeedItem, error) {
@@ -68,7 +89,13 @@ func (m *MockPostStore) GetAllPosts(ctx context.Context, query PaginatedFeedQuer
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).([]*PostFeedItem), args.Error(1)
+
+	postFeedItems, ok := args.Get(0).([]*PostFeedItem)
+	if !ok {
+		return nil, args.Error(1)
+	}
+
+	return postFeedItems, args.Error(1)
 }
 
 // --- MockCommentStore ---
@@ -79,6 +106,7 @@ type MockCommentStore struct {
 
 func (m *MockCommentStore) Create(ctx context.Context, comment *Comment) error {
 	args := m.Called(ctx, comment)
+
 	return args.Error(0)
 }
 
@@ -87,7 +115,13 @@ func (m *MockCommentStore) GetByID(ctx context.Context, postID, commentID int64)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*Comment), args.Error(1)
+
+	comment, ok := args.Get(0).(*Comment)
+	if !ok {
+		return nil, args.Error(1)
+	}
+
+	return comment, args.Error(1)
 }
 
 func (m *MockCommentStore) GetByPostID(ctx context.Context, postID int64) ([]CommentWithUser, error) {
@@ -95,11 +129,18 @@ func (m *MockCommentStore) GetByPostID(ctx context.Context, postID int64) ([]Com
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).([]CommentWithUser), args.Error(1)
+
+	commentsWithUsers, ok := args.Get(0).([]CommentWithUser)
+	if !ok {
+		return nil, args.Error(1)
+	}
+
+	return commentsWithUsers, args.Error(1)
 }
 
 func (m *MockCommentStore) DeleteByPostID(ctx context.Context, postID int64) error {
 	args := m.Called(ctx, postID)
+
 	return args.Error(0)
 }
 
@@ -111,11 +152,13 @@ type MockFollowersStore struct {
 
 func (m *MockFollowersStore) FollowUser(ctx context.Context, userID, followerID int64) error {
 	args := m.Called(ctx, userID, followerID)
+
 	return args.Error(0)
 }
 
 func (m *MockFollowersStore) UnfollowUser(ctx context.Context, userID, followerID int64) error {
 	args := m.Called(ctx, userID, followerID)
+
 	return args.Error(0)
 }
 
@@ -124,7 +167,13 @@ func (m *MockFollowersStore) GetFollowers(ctx context.Context, userID int64) ([]
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).([]Follower), args.Error(1)
+
+	followers, ok := args.Get(0).([]Follower)
+	if !ok {
+		return nil, args.Error(1)
+	}
+
+	return followers, args.Error(1)
 }
 
 func (m *MockFollowersStore) GetFollowerModels(ctx context.Context, userID int64) ([]FollowerModel, error) {
@@ -132,7 +181,13 @@ func (m *MockFollowersStore) GetFollowerModels(ctx context.Context, userID int64
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).([]FollowerModel), args.Error(1)
+
+	followerModels, ok := args.Get(0).([]FollowerModel)
+	if !ok {
+		return nil, args.Error(1)
+	}
+
+	return followerModels, args.Error(1)
 }
 
 // --- MockSessionsStore ---
@@ -143,11 +198,13 @@ type MockSessionsStore struct {
 
 func (m *MockSessionsStore) CreateSession(ctx context.Context, data *SessionData) error {
 	args := m.Called(ctx, data)
+
 	return args.Error(0)
 }
 
 func (m *MockSessionsStore) GetSessionByTokenHash(ctx context.Context, data *SessionData) error {
 	args := m.Called(ctx, data)
+
 	return args.Error(0)
 }
 
@@ -162,7 +219,13 @@ func (s *MockRolesStore) GetRoleByName(ctx context.Context, name string) (*Role,
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*Role), args.Error(1)
+
+	role, ok := args.Get(0).(*Role)
+	if !ok {
+		return nil, args.Error(1)
+	}
+
+	return role, args.Error(1)
 }
 
 func (s *MockRolesStore) GetRoleByID(ctx context.Context, roleID int64) (*Role, error) {
@@ -170,7 +233,13 @@ func (s *MockRolesStore) GetRoleByID(ctx context.Context, roleID int64) (*Role, 
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*Role), args.Error(1)
+
+	res, ok := args.Get(0).(*Role)
+	if !ok {
+		return nil, args.Error(1)
+	}
+
+	return res, args.Error(1)
 }
 
 // --- MockUserStore ---
@@ -181,6 +250,7 @@ type MockUserStore struct {
 
 func (m *MockUserStore) CreateAndInvite(ctx context.Context, userWithRole *UserWithRole, token string, exp time.Duration) error {
 	args := m.Called(ctx, userWithRole, token, exp)
+
 	return args.Error(0)
 }
 
@@ -189,11 +259,18 @@ func (m *MockUserStore) Get(ctx context.Context, userID int64) (*User, error) {
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*User), args.Error(1)
+
+	res, ok := args.Get(0).(*User)
+	if !ok {
+		return nil, args.Error(1)
+	}
+
+	return res, args.Error(1)
 }
 
 func (m *MockUserStore) ActivateAndClean(ctx context.Context, token string) error {
 	args := m.Called(ctx, token)
+
 	return args.Error(0)
 }
 
@@ -202,7 +279,13 @@ func (m *MockUserStore) GetByUsername(ctx context.Context, username string) (*Us
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*User), args.Error(1)
+
+	res, ok := args.Get(0).(*User)
+	if !ok {
+		return nil, args.Error(1)
+	}
+
+	return res, args.Error(1)
 }
 
 func (m *MockUserStore) GetByEmail(ctx context.Context, email string) (*User, error) {
@@ -210,7 +293,13 @@ func (m *MockUserStore) GetByEmail(ctx context.Context, email string) (*User, er
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*User), args.Error(1)
+
+	res, ok := args.Get(0).(*User)
+	if !ok {
+		return nil, args.Error(1)
+	}
+
+	return res, args.Error(1)
 }
 
 func (m *MockUserStore) GetUserWithRole(ctx context.Context, userID int64) (*UserWithRole, error) {
@@ -218,20 +307,29 @@ func (m *MockUserStore) GetUserWithRole(ctx context.Context, userID int64) (*Use
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*UserWithRole), args.Error(1)
+
+	res, ok := args.Get(0).(*UserWithRole)
+	if !ok {
+		return nil, args.Error(1)
+	}
+
+	return res, args.Error(1)
 }
 
 func (m *MockUserStore) DeleteInvitation(ctx context.Context, id int64) error {
 	args := m.Called(ctx, id)
+
 	return args.Error(0)
 }
 
 func (m *MockUserStore) DeleteUser(ctx context.Context, id int64) error {
 	args := m.Called(ctx, id)
+
 	return args.Error(0)
 }
 
 func (m *MockUserStore) DeleteUserAndInvitation(ctx context.Context, id int64) error {
 	args := m.Called(ctx, id)
+
 	return args.Error(0)
 }

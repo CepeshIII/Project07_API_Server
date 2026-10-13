@@ -22,6 +22,7 @@ func getTargetUserFromCtx(r *http.Request) (*store.User, error) {
 	if !ok {
 		return nil, errTargetUserMissing
 	}
+
 	return user, nil
 }
 
@@ -32,9 +33,10 @@ func getAuthUserIDFromCtx(r *http.Request) (int64, error) {
 	}
 
 	idString := fmt.Sprint(value)
+
 	userID, err := strconv.ParseInt(idString, 10, 64)
 	if err != nil {
-		return 0, err
+		return 0, fmt.Errorf("failed to parse userID to int64 from %s: %w", idString, err)
 	}
 
 	return userID, nil
@@ -45,6 +47,7 @@ func getPostFromCtx(r *http.Request) (*store.Post, error) {
 	if !ok {
 		return nil, errPostMissing
 	}
+
 	return post, nil
 }
 
@@ -53,5 +56,6 @@ func getPostIDFromCtx(r *http.Request) (int64, error) {
 	if !ok {
 		return 0, errPostIDMissing
 	}
+
 	return post, nil
 }

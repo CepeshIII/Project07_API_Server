@@ -6,8 +6,10 @@ import (
 	"text/template"
 )
 
+// CompiledTemplate holds the parsed and executed subject and body strings for an email.
 type CompiledTemplate struct {
-	Subject, Body string
+	Subject string
+	Body    string
 }
 
 func templateParsingAndBuilding(templateFile string, data any) (*bytes.Buffer, *bytes.Buffer, error) {
@@ -17,12 +19,14 @@ func templateParsingAndBuilding(templateFile string, data any) (*bytes.Buffer, *
 	}
 
 	subject := new(bytes.Buffer)
+
 	err = tmpl.ExecuteTemplate(subject, "subject", data)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to execute subject template: %w", err)
 	}
 
 	body := new(bytes.Buffer)
+
 	err = tmpl.ExecuteTemplate(body, "body", data)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to execute body template: %w", err)
@@ -31,6 +35,7 @@ func templateParsingAndBuilding(templateFile string, data any) (*bytes.Buffer, *
 	return subject, body, nil
 }
 
+// BuildTemplate parses an embedded template file and executes its subject and body templates using the provided data.
 func BuildTemplate(templateFile string, data any) (CompiledTemplate, error) {
 	subject, body, err := templateParsingAndBuilding(templateFile, data)
 	if err != nil {

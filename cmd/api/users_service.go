@@ -3,62 +3,64 @@ package main
 import (
 	"context"
 	"errors"
-	"fmt"
 	"net/http"
 	"strconv"
 
 	"github.com/CepeshIII/Project07_API_Server/internal/store"
+	"github.com/CepeshIII/Project07_API_Server/internal/store/cache"
 	"github.com/go-chi/chi/v5"
 )
 
-func (app *application) getUser(ctx context.Context, userId int64) (*store.User, error) {
-	if app.config.redisCfg.enabled {
-		user, err := app.cacheStorage.Users.GetUserByID(ctx, userId)
-		if err != nil {
-			app.logger.Errorw("cache store error", "userId", userId, "error", err.Error())
-		} else {
-			if user != nil {
-				fmt.Println("Has been get from cache store")
-				return user, nil
-			}
+func (app *application) getUser(ctx context.Context, userID int64) (*store.User, error) {
+	if app.config.Redis.Enabled {
+		user, err := app.cacheStorage.Users.GetUserByID(ctx, userID)
+		if err == nil {
+			return user, nil // Cache hit!
 		}
+
+		// If it's anything other than a normal cache miss, log the Redis failure
+		if !errors.Is(err, cache.ErrCacheMissed) {
+			app.logger.Errorw("redis cache get error", "userID", userID, "error", err)
+		}
+		// If it was a cache miss, we silently fall through to the database below
 	}
 
-	user, err := app.store.Users.Get(ctx, userId)
+	// Fallback to database store
+	user, err := app.store.Users.Get(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
 
-	if app.config.redisCfg.enabled {
+	// Populate cache asynchronously or synchronously on a cache miss
+	if app.config.Redis.Enabled {
 		if err := app.cacheStorage.Users.SetUser(ctx, user); err != nil {
-			app.logger.Errorw("cache store error", "userId", userId, "error", err.Error())
+			app.logger.Errorw("cache store error", "userID", userID, "error", err.Error())
 		}
 	}
 
-	fmt.Println("Has been get from database")
 	return user, nil
 }
 
-func (app *application) getRole(ctx context.Context, roleId int64) (*store.Role, error) {
-	if app.config.redisCfg.enabled {
-		role, err := app.cacheStorage.Roles.GetRoleByID(ctx, roleId)
-		if err != nil {
-			app.logger.Errorw("cache store error", "roleId", roleId, "error", err.Error())
-		} else {
-			if role != nil {
-				return role, nil
-			}
+func (app *application) getRole(ctx context.Context, roleID int64) (*store.Role, error) {
+	if app.config.Redis.Enabled {
+		role, err := app.cacheStorage.Roles.GetRoleByID(ctx, roleID)
+		if err == nil {
+			return role, nil
+		}
+
+		if !errors.Is(err, cache.ErrCacheMissed) {
+			app.logger.Errorw("cache store error", "roleId", roleID, "error", err.Error())
 		}
 	}
 
-	role, err := app.store.Roles.GetRoleByID(ctx, roleId)
+	role, err := app.store.Roles.GetRoleByID(ctx, roleID)
 	if err != nil {
 		return nil, err
 	}
 
-	if app.config.redisCfg.enabled {
+	if app.config.Redis.Enabled {
 		if err := app.cacheStorage.Roles.SetRole(ctx, role); err != nil {
-			app.logger.Errorw("cache store error", "roleId", roleId, "error", err.Error())
+			app.logger.Errorw("cache store error", "roleId", roleID, "error", err.Error())
 		}
 	}
 
@@ -69,15 +71,14 @@ func (app *application) getRoleByName(
 	ctx context.Context,
 	roleName string,
 ) (*store.Role, error) {
-
-	if app.config.redisCfg.enabled {
+	if app.config.Redis.Enabled {
 		role, err := app.cacheStorage.Roles.GetRoleByName(ctx, roleName)
-		if err != nil {
-			app.logger.Errorw("cache store error", "roleName", roleName, "error", err.Error())
+		if err == nil {
+			return role, nil
 		}
 
-		if role != nil {
-			return role, nil
+		if !errors.Is(err, cache.ErrCacheMissed) {
+			app.logger.Errorw("cache store error", "roleName", roleName, "error", err.Error())
 		}
 	}
 
@@ -86,7 +87,7 @@ func (app *application) getRoleByName(
 		return nil, err
 	}
 
-	if app.config.redisCfg.enabled {
+	if app.config.Redis.Enabled {
 		if err := app.cacheStorage.Roles.SetRole(ctx, role); err != nil {
 			app.logger.Errorw("cache store error", "roleName", roleName, "error", err.Error())
 		}
@@ -95,8 +96,8 @@ func (app *application) getRoleByName(
 	return role, nil
 }
 
-func (app *application) getUserWithRole(ctx context.Context, userId int64) (*store.UserWithRole, error) {
-	user, err := app.getUser(ctx, userId)
+func (app *application) getUserWithRole(ctx context.Context, userID int64) (*store.UserWithRole, error) {
+	user, err := app.getUser(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -116,13 +117,16 @@ func (app *application) getUserWithRole(ctx context.Context, userId int64) (*sto
 
 func parseUserID(r *http.Request) (int64, error) {
 	idParam := chi.URLParam(r, "userID")
+
 	id, err := strconv.ParseInt(idParam, 10, 64)
 	if err != nil {
-		return 0, errors.New("invalid user ID")
+		return 0, errInvalidUserID
 	}
+
 	if id <= 0 {
-		return 0, errors.New("user ID must be a positive integer")
+		return 0, errInvalidUserID
 	}
+
 	return id, nil
 }
 

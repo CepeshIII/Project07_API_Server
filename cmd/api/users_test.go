@@ -2,13 +2,12 @@ package main
 
 import (
 	"context"
-	"errors"
-	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
 	"testing"
 
+	"github.com/CepeshIII/Project07_API_Server/internal/credential"
 	"github.com/CepeshIII/Project07_API_Server/internal/store"
 	"github.com/go-chi/chi/v5"
 	"github.com/stretchr/testify/assert"
@@ -21,6 +20,8 @@ type MockServer struct {
 }
 
 func TestGetUserHandler(t *testing.T) {
+	t.Parallel() // Satisfies paralleltest for the outer test
+
 	user := &store.User{
 		ID:       1,
 		Username: "user",
@@ -41,6 +42,8 @@ func TestGetUserHandler(t *testing.T) {
 				return r.WithContext(context.WithValue(r.Context(), targetUserCtxKey, user))
 			},
 			dataValidationSetup: func(t *testing.T, rr *httptest.ResponseRecorder) {
+				t.Helper()
+
 				var response UserEnvelope
 				decodeAndValidate(t, rr.Body.String(), &response)
 
@@ -56,6 +59,8 @@ func TestGetUserHandler(t *testing.T) {
 				return r // context without target user
 			},
 			dataValidationSetup: func(t *testing.T, rr *httptest.ResponseRecorder) {
+				t.Helper()
+
 				var errorEnvelope ErrorEnvelope
 				decodeAndValidate(t, rr.Body.String(), &errorEnvelope)
 			},
@@ -64,6 +69,9 @@ func TestGetUserHandler(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Helper()
+			t.Parallel() // Satisfies paralleltest for subtests
+
 			app := &application{
 				logger: zap.NewNop().Sugar(),
 			}
@@ -74,12 +82,14 @@ func TestGetUserHandler(t *testing.T) {
 					if tt.contextSetup != nil {
 						r = tt.contextSetup(r)
 					}
+
 					next.ServeHTTP(w, r)
 				})
 			})
 			r.Get("/users/{userID}", app.getUserHandler)
 
-			req := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/users/%s", tt.userIDParam), nil)
+			// Use NewRequestWithContext to satisfy the noctx linter
+			req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/users/"+tt.userIDParam, nil)
 			rr := httptest.NewRecorder()
 
 			r.ServeHTTP(rr, req)
@@ -104,7 +114,7 @@ func TestActivateUserHandler(t *testing.T) {
 			name:           "successful activation of user (200)",
 			expectedStatus: http.StatusOK,
 			mockSetup: func(m *store.MockUserStore) {
-				expectedHash := string(HashToken("test-token"))
+				expectedHash := string(credential.Hash("test-token"))
 				m.On("ActivateAndClean", mock.Anything, expectedHash).Return(nil)
 			},
 			dataValidationSetup: func(t *testing.T, rr *httptest.ResponseRecorder) {
@@ -116,7 +126,7 @@ func TestActivateUserHandler(t *testing.T) {
 			name:           "not found activation of user (404)",
 			expectedStatus: http.StatusNotFound,
 			mockSetup: func(m *store.MockUserStore) {
-				expectedHash := string(HashToken("test-token"))
+				expectedHash := string(credential.Hash("test-token"))
 				m.On("ActivateAndClean", mock.Anything, expectedHash).Return(store.ErrNotFound)
 			},
 			dataValidationSetup: func(t *testing.T, rr *httptest.ResponseRecorder) {
@@ -129,8 +139,8 @@ func TestActivateUserHandler(t *testing.T) {
 			name:           "invalid activation of user (400)",
 			expectedStatus: http.StatusBadRequest,
 			mockSetup: func(m *store.MockUserStore) {
-				expectedHash := string(HashToken("test-token"))
-				m.On("ActivateAndClean", mock.Anything, expectedHash).Return(store.ErrorInvalidToken)
+				expectedHash := string(credential.Hash("test-token"))
+				m.On("ActivateAndClean", mock.Anything, expectedHash).Return(store.ErrInvalidToken)
 			},
 			dataValidationSetup: func(t *testing.T, rr *httptest.ResponseRecorder) {
 				var response MessageEnvelope
@@ -141,8 +151,8 @@ func TestActivateUserHandler(t *testing.T) {
 			name:           "internal server error (500)",
 			expectedStatus: http.StatusInternalServerError,
 			mockSetup: func(m *store.MockUserStore) {
-				expectedHash := string(HashToken("test-token"))
-				m.On("ActivateAndClean", mock.Anything, expectedHash).Return(errors.New("db connection lost"))
+				expectedHash := string(credential.Hash("test-token"))
+				m.On("ActivateAndClean", mock.Anything, expectedHash).Return(store.ErrUnexpected)
 			},
 			dataValidationSetup: func(t *testing.T, rr *httptest.ResponseRecorder) {
 				var response MessageEnvelope
@@ -198,8 +208,10 @@ func TestFollowUserHandler(t *testing.T) {
 			expectedStatus: http.StatusCreated,
 			targetIDParam:  "2",
 			contextSetup: func(r *http.Request) *http.Request {
-				r = r.WithContext(context.WithValue(r.Context(), authUserIDCtxKey, authUserID))
-				r = r.WithContext(context.WithValue(r.Context(), targetUserCtxKey, targetUser))
+				ctx := r.Context()
+				ctx = context.WithValue(ctx, authUserIDCtxKey, authUserID)
+				r = r.WithContext(context.WithValue(ctx, targetUserCtxKey, targetUser))
+
 				return r
 			},
 			mockSetup: func(f *store.MockFollowersStore) {
@@ -216,6 +228,7 @@ func TestFollowUserHandler(t *testing.T) {
 			targetIDParam:  "2",
 			contextSetup: func(r *http.Request) *http.Request {
 				r = r.WithContext(context.WithValue(r.Context(), authUserIDCtxKey, authUserID))
+
 				return r
 			},
 			mockSetup: func(f *store.MockFollowersStore) {},
@@ -230,6 +243,7 @@ func TestFollowUserHandler(t *testing.T) {
 			targetIDParam:  "2",
 			contextSetup: func(r *http.Request) *http.Request {
 				r = r.WithContext(context.WithValue(r.Context(), targetUserCtxKey, targetUser))
+
 				return r
 			},
 			mockSetup: func(f *store.MockFollowersStore) {},
@@ -243,8 +257,10 @@ func TestFollowUserHandler(t *testing.T) {
 			expectedStatus: http.StatusBadRequest,
 			targetIDParam:  "2",
 			contextSetup: func(r *http.Request) *http.Request {
-				r = r.WithContext(context.WithValue(r.Context(), authUserIDCtxKey, targetUser.ID)) // same as target user ID
-				r = r.WithContext(context.WithValue(r.Context(), targetUserCtxKey, targetUser))
+				ctx := r.Context()
+				ctx = context.WithValue(ctx, authUserIDCtxKey, targetUser.ID) // same as target user ID
+				r = r.WithContext(context.WithValue(ctx, targetUserCtxKey, targetUser))
+
 				return r
 			},
 			mockSetup: func(f *store.MockFollowersStore) {},
@@ -258,12 +274,14 @@ func TestFollowUserHandler(t *testing.T) {
 			expectedStatus: http.StatusConflict,
 			targetIDParam:  "2",
 			contextSetup: func(r *http.Request) *http.Request {
-				r = r.WithContext(context.WithValue(r.Context(), authUserIDCtxKey, authUserID))
-				r = r.WithContext(context.WithValue(r.Context(), targetUserCtxKey, targetUser))
+				ctx := r.Context()
+				ctx = context.WithValue(ctx, authUserIDCtxKey, authUserID)
+				r = r.WithContext(context.WithValue(ctx, targetUserCtxKey, targetUser))
+
 				return r
 			},
 			mockSetup: func(f *store.MockFollowersStore) {
-				f.On("FollowUser", mock.Anything, authUserID, targetUser.ID).Return(store.ErrorConflict)
+				f.On("FollowUser", mock.Anything, authUserID, targetUser.ID).Return(store.ErrResourceConflict)
 			},
 			dataValidationSetup: func(t *testing.T, rr *httptest.ResponseRecorder) {
 				var response MessageEnvelope
@@ -275,12 +293,14 @@ func TestFollowUserHandler(t *testing.T) {
 			expectedStatus: http.StatusInternalServerError,
 			targetIDParam:  "2",
 			contextSetup: func(r *http.Request) *http.Request {
-				r = r.WithContext(context.WithValue(r.Context(), authUserIDCtxKey, authUserID))
-				r = r.WithContext(context.WithValue(r.Context(), targetUserCtxKey, targetUser))
+				ctx := r.Context()
+				ctx = context.WithValue(ctx, authUserIDCtxKey, authUserID)
+				r = r.WithContext(context.WithValue(ctx, targetUserCtxKey, targetUser))
+
 				return r
 			},
 			mockSetup: func(f *store.MockFollowersStore) {
-				f.On("FollowUser", mock.Anything, authUserID, targetUser.ID).Return(errors.New("database error"))
+				f.On("FollowUser", mock.Anything, authUserID, targetUser.ID).Return(store.ErrUnexpected)
 			},
 			dataValidationSetup: func(t *testing.T, rr *httptest.ResponseRecorder) {
 				var response MessageEnvelope
@@ -345,8 +365,10 @@ func TestUnfollowUserHandler(t *testing.T) {
 			expectedStatus: http.StatusCreated,
 			targetIDParam:  "2",
 			contextSetup: func(r *http.Request) *http.Request {
-				r = r.WithContext(context.WithValue(r.Context(), authUserIDCtxKey, authUserID))
-				r = r.WithContext(context.WithValue(r.Context(), targetUserCtxKey, targetUser))
+				ctx := r.Context()
+				ctx = context.WithValue(ctx, authUserIDCtxKey, authUserID)
+				r = r.WithContext(context.WithValue(ctx, targetUserCtxKey, targetUser))
+
 				return r
 			},
 			mockSetup: func(f *store.MockFollowersStore) {
@@ -363,6 +385,7 @@ func TestUnfollowUserHandler(t *testing.T) {
 			targetIDParam:  "2",
 			contextSetup: func(r *http.Request) *http.Request {
 				r = r.WithContext(context.WithValue(r.Context(), authUserIDCtxKey, authUserID))
+
 				return r
 			},
 			mockSetup: func(f *store.MockFollowersStore) {},
@@ -377,6 +400,7 @@ func TestUnfollowUserHandler(t *testing.T) {
 			targetIDParam:  "2",
 			contextSetup: func(r *http.Request) *http.Request {
 				r = r.WithContext(context.WithValue(r.Context(), targetUserCtxKey, targetUser))
+
 				return r
 			},
 			mockSetup: func(f *store.MockFollowersStore) {},
@@ -390,8 +414,10 @@ func TestUnfollowUserHandler(t *testing.T) {
 			expectedStatus: http.StatusBadRequest,
 			targetIDParam:  "2",
 			contextSetup: func(r *http.Request) *http.Request {
-				r = r.WithContext(context.WithValue(r.Context(), authUserIDCtxKey, targetUser.ID)) // same as target user ID
-				r = r.WithContext(context.WithValue(r.Context(), targetUserCtxKey, targetUser))
+				ctx := r.Context()
+				ctx = context.WithValue(ctx, authUserIDCtxKey, targetUser.ID) // same as target user ID
+				r = r.WithContext(context.WithValue(ctx, targetUserCtxKey, targetUser))
+
 				return r
 			},
 			mockSetup: func(f *store.MockFollowersStore) {},
@@ -405,8 +431,10 @@ func TestUnfollowUserHandler(t *testing.T) {
 			expectedStatus: http.StatusNotFound,
 			targetIDParam:  "2",
 			contextSetup: func(r *http.Request) *http.Request {
-				r = r.WithContext(context.WithValue(r.Context(), authUserIDCtxKey, authUserID))
-				r = r.WithContext(context.WithValue(r.Context(), targetUserCtxKey, targetUser))
+				ctx := r.Context()
+				ctx = context.WithValue(ctx, authUserIDCtxKey, authUserID)
+				r = r.WithContext(context.WithValue(ctx, targetUserCtxKey, targetUser))
+
 				return r
 			},
 			mockSetup: func(f *store.MockFollowersStore) {
@@ -422,12 +450,14 @@ func TestUnfollowUserHandler(t *testing.T) {
 			expectedStatus: http.StatusInternalServerError,
 			targetIDParam:  "2",
 			contextSetup: func(r *http.Request) *http.Request {
-				r = r.WithContext(context.WithValue(r.Context(), authUserIDCtxKey, authUserID))
-				r = r.WithContext(context.WithValue(r.Context(), targetUserCtxKey, targetUser))
+				ctx := r.Context()
+				ctx = context.WithValue(ctx, authUserIDCtxKey, authUserID)
+				r = r.WithContext(context.WithValue(ctx, targetUserCtxKey, targetUser))
+
 				return r
 			},
 			mockSetup: func(f *store.MockFollowersStore) {
-				f.On("UnfollowUser", mock.Anything, authUserID, targetUser.ID).Return(errors.New("database error"))
+				f.On("UnfollowUser", mock.Anything, authUserID, targetUser.ID).Return(store.ErrUnexpected)
 			},
 			dataValidationSetup: func(t *testing.T, rr *httptest.ResponseRecorder) {
 				var response MessageEnvelope
@@ -523,7 +553,7 @@ func TestGetFollowersHandler(t *testing.T) {
 				return r.WithContext(context.WithValue(r.Context(), targetUserCtxKey, targetUser))
 			},
 			mockSetup: func(f *store.MockFollowersStore) {
-				f.On("GetFollowers", mock.Anything, targetUser.ID).Return(nil, errors.New("db error"))
+				f.On("GetFollowers", mock.Anything, targetUser.ID).Return(nil, store.ErrUnexpected)
 			},
 			dataValidationSetup: func(t *testing.T, rr *httptest.ResponseRecorder) {
 				var response PostsEnvelope
@@ -615,7 +645,7 @@ func TestDeleteUserHandler(t *testing.T) {
 				return r.WithContext(context.WithValue(r.Context(), targetUserCtxKey, targetUser))
 			},
 			mockSetup: func(f *store.MockUserStore) {
-				f.On("DeleteUser", mock.Anything, targetUser.ID).Return(errors.New("database error"))
+				f.On("DeleteUser", mock.Anything, targetUser.ID).Return(store.ErrUnexpected)
 			},
 			dataValidationSetup: func(t *testing.T, rr *httptest.ResponseRecorder) {
 				var response MessageEnvelope

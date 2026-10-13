@@ -2,13 +2,11 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 
 	"github.com/CepeshIII/Project07_API_Server/internal/store"
-	"github.com/go-playground/validator/v10"
 )
-
-var Validate *validator.Validate
 
 type Envelope struct {
 	Data any `json:"data"`
@@ -55,21 +53,22 @@ type MessageEnvelope struct {
 }
 
 type CreateCommentPayload struct {
-	Content string `json:"content"`
+	Content string `json:"content" validate:"required,max=500"`
 }
 
 type ErrorEnvelope struct {
 	Error string `json:"error"`
 }
 
-func init() {
-	Validate = validator.New(validator.WithRequiredStructEnabled())
-}
-
 func writeJSON(w http.ResponseWriter, status int, data any) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	return json.NewEncoder(w).Encode(data)
+
+	if err := json.NewEncoder(w).Encode(data); err != nil {
+		return fmt.Errorf("failed to encode JSON: %w", err)
+	}
+
+	return nil
 }
 
 func readJSON(w http.ResponseWriter, r *http.Request, data any) error {
@@ -79,7 +78,11 @@ func readJSON(w http.ResponseWriter, r *http.Request, data any) error {
 	decoder := json.NewDecoder(r.Body)
 	decoder.DisallowUnknownFields()
 
-	return decoder.Decode(data)
+	if err := decoder.Decode(data); err != nil {
+		return fmt.Errorf("failed to decode JSON: %w", err)
+	}
+
+	return nil
 }
 
 func writeJSONError(w http.ResponseWriter, status int, message string) error {

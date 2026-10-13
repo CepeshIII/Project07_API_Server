@@ -3,21 +3,18 @@ package main
 import (
 	"errors"
 	"net/http"
-	"strconv"
 
 	"github.com/CepeshIII/Project07_API_Server/internal/store"
-
-	"github.com/go-chi/chi/v5"
 )
 
 type CreatePostPayload struct {
-	Title   string   `json:"title" validate:"required,max=200"`
+	Title   string   `json:"title"   validate:"required,max=200"`
 	Content string   `json:"content" validate:"required,max=1000"`
 	Tags    []string `json:"tags"`
 }
 
 type UpdatePostPayload struct {
-	Title   string   `json:"title" validate:"omitempty,max=200"`
+	Title   string   `json:"title"   validate:"omitempty,max=200"`
 	Content string   `json:"content" validate:"omitempty,max=1000"`
 	Tags    []string `json:"tags"`
 }
@@ -30,28 +27,31 @@ type UpdatePostPayload struct {
 //	@Accept			json
 //	@Produce		json
 //	@Param			post	body		CreatePostPayload	true	"Create post request"
-//
-//	@Success		201		{object}	store.Post
+//	@Success		201		{object}	MessageEnvelope
 //	@Failure		400		{object}	ErrorEnvelope
+//	@Failure		401		{object}	ErrorEnvelope
 //	@Failure		500		{object}	ErrorEnvelope
 //	@Security		ApiKeyAuth
 //	@Router			/posts/ [post]
 func (app *application) createPostHandler(w http.ResponseWriter, r *http.Request) {
-	userId, err := getAuthUserIDFromCtx(r)
+	userID, err := getAuthUserIDFromCtx(r)
 	if err != nil {
 		// This should not happen if the middleware is working correctly
 		app.internalServerError(w, r, err)
+
 		return
 	}
 
 	var payload CreatePostPayload
 	if err := readJSON(w, r, &payload); err != nil {
 		app.badRequestResponse(w, r, err)
+
 		return
 	}
 
-	if err := Validate.Struct(payload); err != nil {
+	if err := app.validator.Struct(payload); err != nil {
 		app.badRequestResponse(w, r, err)
+
 		return
 	}
 
@@ -59,18 +59,20 @@ func (app *application) createPostHandler(w http.ResponseWriter, r *http.Request
 		Title:   payload.Title,
 		Content: payload.Content,
 		Tags:    payload.Tags,
-		UserID:  userId,
+		UserID:  userID,
 	}
 
 	ctx := r.Context()
 
 	if err := app.store.Posts.Create(ctx, post); err != nil {
 		app.internalServerError(w, r, err)
+
 		return
 	}
 
-	if err := app.jsonResponse(w, http.StatusCreated, post); err != nil {
+	if err := app.jsonResponse(w, http.StatusCreated, "OK"); err != nil {
 		app.internalServerError(w, r, err)
+
 		return
 	}
 }
@@ -95,6 +97,7 @@ func (app *application) getPostHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		// This should not happen if the middleware is working correctly
 		app.internalServerError(w, r, err)
+
 		return
 	}
 
@@ -106,17 +109,20 @@ func (app *application) getPostHandler(w http.ResponseWriter, r *http.Request) {
 			break
 		default:
 			app.internalServerError(w, r, err)
+
 			return
 		}
 	}
 
 	var postWithComments store.PostWithComments
+
 	postWithComments.Post = post
 	postWithComments.Comments = comments
 
-	// Write responce
+	// Write response
 	if err := app.jsonResponse(w, http.StatusOK, postWithComments); err != nil {
 		app.internalServerError(w, r, err)
+
 		return
 	}
 }
@@ -129,15 +135,12 @@ func (app *application) getPostHandler(w http.ResponseWriter, r *http.Request) {
 //	@Accept			json
 //	@Produce		json
 //	@Success		200	{object}	PostsPostWithMetadataEnvelope
-//	@Failure		400	{object}	ErrorEnvelope
-//	@Failure		404	{object}	ErrorEnvelope
 //	@Failure		500	{object}	ErrorEnvelope
 //	@Security		ApiKeyAuth
 //	@Router			/posts [get]
 func (app *application) getAllPostsHandler(w http.ResponseWriter, r *http.Request) {
-
 	fq := store.PaginatedFeedQuery{
-		Limit:  20,
+		Limit:  app.config.Pagination.DefaultLimit,
 		Offset: 0,
 		Sort:   "desc",
 		Tags:   []string{},
@@ -151,13 +154,15 @@ func (app *application) getAllPostsHandler(w http.ResponseWriter, r *http.Reques
 			break
 		default:
 			app.internalServerError(w, r, err)
+
 			return
 		}
 	}
 
-	// Write responce
+	// Write response
 	if err := app.jsonResponse(w, http.StatusOK, postsFeed); err != nil {
 		app.internalServerError(w, r, err)
+
 		return
 	}
 }
@@ -173,15 +178,17 @@ func (app *application) getAllPostsHandler(w http.ResponseWriter, r *http.Reques
 //	@Param			id	body		CreateCommentPayload	true	"Add comment request"
 //	@Success		201	{object}	MessageEnvelope
 //	@Failure		400	{object}	ErrorEnvelope
+//	@Failure		401	{object}	ErrorEnvelope
 //	@Failure		404	{object}	ErrorEnvelope
 //	@Failure		500	{object}	ErrorEnvelope
 //	@Security		ApiKeyAuth
 //	@Router			/posts/{id}/comments [post]
 func (app *application) createCommentHandler(w http.ResponseWriter, r *http.Request) {
-	userId, err := getAuthUserIDFromCtx(r)
+	userID, err := getAuthUserIDFromCtx(r)
 	if err != nil {
 		// This should not happen if the middleware is working correctly
 		app.internalServerError(w, r, err)
+
 		return
 	}
 
@@ -190,35 +197,41 @@ func (app *application) createCommentHandler(w http.ResponseWriter, r *http.Requ
 	if err != nil {
 		// This should not happen if the middleware is working correctly
 		app.internalServerError(w, r, err)
+
 		return
 	}
+
 	ctx := r.Context()
 
 	var payload CreateCommentPayload
 	if err := readJSON(w, r, &payload); err != nil {
 		app.badRequestResponse(w, r, err)
+
 		return
 	}
 
-	if err := Validate.Struct(payload); err != nil {
+	if err := app.validator.Struct(payload); err != nil {
 		app.badRequestResponse(w, r, err)
+
 		return
 	}
 
 	comment := &store.Comment{
 		PostID:  postID,
-		UserID:  userId,
+		UserID:  userID,
 		Content: payload.Content,
 	}
 
 	err = app.store.Comments.Create(ctx, comment)
 	if err != nil {
 		app.internalServerError(w, r, err)
+
 		return
 	}
 
 	if err := app.jsonResponse(w, http.StatusCreated, "OK"); err != nil {
 		app.internalServerError(w, r, err)
+
 		return
 	}
 }
@@ -232,7 +245,6 @@ func (app *application) createCommentHandler(w http.ResponseWriter, r *http.Requ
 //	@Produce		json
 //	@Param			id	path		int	true	"Post ID"
 //	@Success		200	{object}	CommentsEnvelope
-//	@Failure		400	{object}	ErrorEnvelope
 //	@Failure		404	{object}	ErrorEnvelope
 //	@Failure		500	{object}	ErrorEnvelope
 //	@Security		ApiKeyAuth
@@ -242,24 +254,27 @@ func (app *application) getPostCommentsHandler(w http.ResponseWriter, r *http.Re
 	postID, err := getPostIDFromCtx(r)
 	if err != nil {
 		app.internalServerError(w, r, err)
+
 		return
 	}
 
 	ctx := r.Context()
+
 	comments, err := app.store.Comments.GetByPostID(ctx, postID)
 	if err != nil {
 		switch {
 		case errors.Is(err, store.ErrNotFound):
-			comments = make([]store.CommentWithUser, 0)
-			// app.notFoundResponse(w, r, err)
+			break
 		default:
 			app.internalServerError(w, r, err)
+
 			return
 		}
 	}
 
 	if err := app.jsonResponse(w, http.StatusOK, comments); err != nil {
 		app.internalServerError(w, r, err)
+
 		return
 	}
 }
@@ -275,6 +290,7 @@ func (app *application) getPostCommentsHandler(w http.ResponseWriter, r *http.Re
 //	@Param			post	body		UpdatePostPayload	true	"Update post request"
 //	@Success		201		{object}	MessageEnvelope
 //	@Failure		400		{object}	ErrorEnvelope
+//	@Failure		401		{object}	ErrorEnvelope
 //	@Failure		404		{object}	ErrorEnvelope
 //	@Failure		500		{object}	ErrorEnvelope
 //	@Security		ApiKeyAuth
@@ -285,6 +301,7 @@ func (app *application) updatePostHandler(w http.ResponseWriter, r *http.Request
 	if err != nil {
 		// This should not happen if the middleware is working correctly
 		app.internalServerError(w, r, err)
+
 		return
 	}
 
@@ -292,11 +309,13 @@ func (app *application) updatePostHandler(w http.ResponseWriter, r *http.Request
 	var payload UpdatePostPayload
 	if err := readJSON(w, r, &payload); err != nil {
 		app.badRequestResponse(w, r, err)
+
 		return
 	}
 
-	if err := Validate.Struct(payload); err != nil {
+	if err := app.validator.Struct(payload); err != nil {
 		app.badRequestResponse(w, r, err)
+
 		return
 	}
 
@@ -321,12 +340,14 @@ func (app *application) updatePostHandler(w http.ResponseWriter, r *http.Request
 		default:
 			app.internalServerError(w, r, err)
 		}
+
 		return
 	}
 
-	// Write responce
+	// Write response
 	if err := app.jsonResponse(w, http.StatusCreated, "OK"); err != nil {
 		app.internalServerError(w, r, err)
+
 		return
 	}
 }
@@ -340,7 +361,7 @@ func (app *application) updatePostHandler(w http.ResponseWriter, r *http.Request
 //	@Produce		json
 //	@Param			id	path		int	true	"Post ID"
 //	@Success		200	{object}	MessageEnvelope
-//	@Failure		400	{object}	ErrorEnvelope
+//	@Failure		401	{object}	ErrorEnvelope
 //	@Failure		404	{object}	ErrorEnvelope
 //	@Failure		500	{object}	ErrorEnvelope
 //	@Security		ApiKeyAuth
@@ -350,6 +371,7 @@ func (app *application) deletePostHandler(w http.ResponseWriter, r *http.Request
 	postID, err := getPostIDFromCtx(r)
 	if err != nil {
 		app.internalServerError(w, r, err)
+
 		return
 	}
 
@@ -362,6 +384,7 @@ func (app *application) deletePostHandler(w http.ResponseWriter, r *http.Request
 		default:
 			app.internalServerError(w, r, err)
 		}
+
 		return
 	}
 
@@ -373,17 +396,14 @@ func (app *application) deletePostHandler(w http.ResponseWriter, r *http.Request
 		default:
 			app.internalServerError(w, r, err)
 		}
+
 		return
 	}
 
-	// Write responce
+	// Write response
 	if err := app.jsonResponse(w, http.StatusOK, "OK"); err != nil {
 		app.internalServerError(w, r, err)
+
 		return
 	}
-}
-
-func parsePostID(r *http.Request) (int64, error) {
-	idParam := chi.URLParam(r, "postsID")
-	return strconv.ParseInt(idParam, 10, 64)
 }

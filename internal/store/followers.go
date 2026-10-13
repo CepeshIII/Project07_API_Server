@@ -3,20 +3,25 @@ package store
 import (
 	"context"
 	"database/sql"
+	"errors"
+	"fmt"
 
 	"github.com/lib/pq"
 )
 
+// FollowersStore handles database operations for user follow relationships.
 type FollowersStore struct {
 	db *sql.DB
 }
 
+// FollowerModel represents the raw database structure of a follower relationship.
 type FollowerModel struct {
 	UserID     int64  `json:"user_id"`
 	FollowerID int64  `json:"follower_id"`
 	CreatedAt  string `json:"created_at"`
 }
 
+// Follower represents a follower enriched with summary user details.
 type Follower struct {
 	UserSummary *UserSummary `json:"user_summary"`
 	CreatedAt   string       `json:"created_at"`
@@ -28,6 +33,7 @@ func (s *FollowersStore) FollowUser(ctx context.Context, followerID, followeeID 
 		INSERT INTO followers (user_id, follower_id)
 		VALUES ($1, $2)
 	`
+
 	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
 	defer cancel()
 
@@ -37,18 +43,18 @@ func (s *FollowersStore) FollowUser(ctx context.Context, followerID, followeeID 
 		followeeID,
 		followerID,
 	)
-
 	if err != nil {
-		if pqErr, ok := err.(*pq.Error); ok && pqErr.Code == "23505" {
-			return ErrorConflict
+		var pqErr *pq.Error
+		if errors.As(err, &pqErr) && pqErr.Code == "23505" {
+			return ErrResourceConflict
 		}
 
-		return err
+		return fmt.Errorf("failed to follow user %d by follower %d: %w", followeeID, followerID, err)
 	}
 
 	rows, err := res.RowsAffected()
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to get rows affected for follow user %d: %w", followeeID, err)
 	}
 
 	if rows == 0 {
@@ -58,12 +64,13 @@ func (s *FollowersStore) FollowUser(ctx context.Context, followerID, followeeID 
 	return nil
 }
 
+// UnfollowUser removes a follow relationship where followerID stops following followeeID.
 func (s *FollowersStore) UnfollowUser(ctx context.Context, followerID, followeeID int64) error {
-
 	query := `
 	DELETE FROM followers
 		WHERE user_id = $1 and follower_id = $2
 	`
+
 	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
 	defer cancel()
 
@@ -73,14 +80,13 @@ func (s *FollowersStore) UnfollowUser(ctx context.Context, followerID, followeeI
 		followeeID,
 		followerID,
 	)
-
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to unfollow user %d by follower %d: %w", followeeID, followerID, err)
 	}
 
 	rows, err := res.RowsAffected()
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to get rows affected for unfollow user %d: %w", followeeID, err)
 	}
 
 	if rows == 0 {
@@ -90,6 +96,7 @@ func (s *FollowersStore) UnfollowUser(ctx context.Context, followerID, followeeI
 	return nil
 }
 
+// GetFollowers retrieves a list of followers with their user summaries for a given user ID.
 func (s *FollowersStore) GetFollowers(ctx context.Context, userID int64) ([]Follower, error) {
 	query := `
 	SELECT f.follower_id, f.created_at, u.username
@@ -106,37 +113,43 @@ func (s *FollowersStore) GetFollowers(ctx context.Context, userID int64) ([]Foll
 		query,
 		userID,
 	)
-
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get followers for user %d: %w", userID, err)
 	}
-	defer rows.Close()
+
+	defer func() {
+		_ = rows.Close()
+	}()
 
 	var followers []Follower
+
 	for rows.Next() {
 		follower := Follower{
 			UserSummary: &UserSummary{},
 		}
+
 		err := rows.Scan(&follower.UserSummary.ID, &follower.CreatedAt, &follower.UserSummary.Username)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to scan follower row for user %d: %w", userID, err)
 		}
 
 		followers = append(followers, follower)
 	}
 
 	if err := rows.Err(); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("row iteration error getting followers for user %d: %w", userID, err)
 	}
 
 	return followers, nil
 }
 
+// GetFollowerModels retrieves raw follower model entries for a given user ID.
 func (s *FollowersStore) GetFollowerModels(ctx context.Context, userID int64) ([]FollowerModel, error) {
 	query := `
-	SELECT * FROM followers
-		WHERE user_id = $1
-	`
+    SELECT user_id, follower_id, created_at FROM followers
+        WHERE user_id = $1
+    `
+
 	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
 	defer cancel()
 
@@ -145,26 +158,29 @@ func (s *FollowersStore) GetFollowerModels(ctx context.Context, userID int64) ([
 		query,
 		userID,
 	)
-
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to query follower models for user %d: %w", userID, err)
 	}
 
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-
-	defer rows.Close()
+	defer func() {
+		_ = rows.Close()
+	}()
 
 	var followers []FollowerModel
+
 	for rows.Next() {
 		var follower FollowerModel
+
 		err := rows.Scan(&follower.UserID, &follower.FollowerID, &follower.CreatedAt)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to scan follower model row for user %d: %w", userID, err)
 		}
 
 		followers = append(followers, follower)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("row iteration error getting follower models for user %d: %w", userID, err)
 	}
 
 	return followers, nil

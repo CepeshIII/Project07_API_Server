@@ -28,7 +28,6 @@ func TestFixedWindowRateLimiterAllow(t *testing.T) {
 			} else {
 				countOfNotAllow++
 			}
-
 		}
 
 		assert.Equal(t, limit, countOfAllow)
@@ -106,12 +105,15 @@ func TestFixedWindowRateLimiterAllow(t *testing.T) {
 		var wg sync.WaitGroup
 		wg.Add(concurrency)
 
-		var allowedCount int
-		var mu sync.Mutex
+		var (
+			allowedCount int
+			mu           sync.Mutex
+		)
 
 		for range concurrency {
 			go func() {
 				defer wg.Done()
+
 				ok, _ := fwRateLimiter.Allow(ip)
 				if ok {
 					mu.Lock()

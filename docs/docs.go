@@ -226,18 +226,6 @@ const docTemplate = `{
                             "$ref": "#/definitions/main.PostsPostWithMetadataEnvelope"
                         }
                     },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/main.ErrorEnvelope"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/main.ErrorEnvelope"
-                        }
-                    },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
@@ -280,11 +268,17 @@ const docTemplate = `{
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "$ref": "#/definitions/store.Post"
+                            "$ref": "#/definitions/main.MessageEnvelope"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/main.ErrorEnvelope"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
                         "schema": {
                             "$ref": "#/definitions/main.ErrorEnvelope"
                         }
@@ -385,8 +379,8 @@ const docTemplate = `{
                             "$ref": "#/definitions/main.MessageEnvelope"
                         }
                     },
-                    "400": {
-                        "description": "Bad Request",
+                    "401": {
+                        "description": "Unauthorized",
                         "schema": {
                             "$ref": "#/definitions/main.ErrorEnvelope"
                         }
@@ -453,6 +447,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/main.ErrorEnvelope"
                         }
                     },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/main.ErrorEnvelope"
+                        }
+                    },
                     "404": {
                         "description": "Not Found",
                         "schema": {
@@ -500,12 +500,6 @@ const docTemplate = `{
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/main.CommentsEnvelope"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/main.ErrorEnvelope"
                         }
                     },
                     "404": {
@@ -566,6 +560,12 @@ const docTemplate = `{
                     },
                     "400": {
                         "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/main.ErrorEnvelope"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
                         "schema": {
                             "$ref": "#/definitions/main.ErrorEnvelope"
                         }
@@ -906,9 +906,13 @@ const docTemplate = `{
         },
         "main.CreateCommentPayload": {
             "type": "object",
+            "required": [
+                "content"
+            ],
             "properties": {
                 "content": {
-                    "type": "string"
+                    "type": "string",
+                    "maxLength": 500
                 }
             }
         },
@@ -1254,7 +1258,7 @@ const docTemplate = `{
     }
 }`
 
-// SwaggerInfo holds exported Swagger Info so clients can modify it
+// SwaggerInfo holds exported Swagger Info so clients can modify it.
 var SwaggerInfo = &swag.Spec{
 	Version:          "",
 	Host:             "",

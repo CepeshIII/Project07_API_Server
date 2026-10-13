@@ -54,7 +54,6 @@ func TestAccessTokenMiddleware(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-
 			mockAuth := new(auth.MockAuthenticator)
 			tt.mockSetup(mockAuth)
 
@@ -76,8 +75,9 @@ func TestAccessTokenMiddleware(t *testing.T) {
 			r.With(app.accessTokenMiddleware).Get("/", nextHandler)
 
 			// set up the request and recorder
-			req := httptest.NewRequest("GET", "/", nil)
+			req := httptest.NewRequest(http.MethodGet, "/", nil)
 			tt.cookieSetup(req)
+
 			rr := httptest.NewRecorder()
 
 			r.ServeHTTP(rr, req) // call the router with the request
@@ -87,5 +87,4 @@ func TestAccessTokenMiddleware(t *testing.T) {
 			mockAuth.AssertExpectations(t)
 		})
 	}
-
 }

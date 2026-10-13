@@ -2,132 +2,34 @@ package main
 
 import (
 	"context"
-	"encoding/base64"
 	"errors"
 	"fmt"
 	"net/http"
-	"strings"
-	"time"
+	"strconv"
 
-	"github.com/CepeshIII/Project07_API_Server/internal/httputils"
 	"github.com/CepeshIII/Project07_API_Server/internal/store"
+	"github.com/go-chi/chi/v5"
 )
 
+// AuthMiddleware authenticates requests using HTTP Basic Authentication,
+// establishes user sessions, and injects session/access tokens into cookies.
 func (app *application) AuthMiddleware() func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			// read the auth header
-			authHeader := r.Header.Get("Authorization")
-			if authHeader == "" {
-				app.unauthorizedBasicErrorResponse(w, r, errors.New("authorization header is missing"))
-				return
-			}
-
-			// parse it -> get the base64
-			parts := strings.Split(authHeader, " ")
-			if len(parts) <= 1 || parts[0] != "Basic" {
-				app.unauthorizedBasicErrorResponse(w, r, errors.New("authorization header is malformed"))
-				return
-			}
-
-			// decode it
-			decoded, err := base64.StdEncoding.DecodeString(parts[1])
+			payload, err := app.extractAndValidateBasicAuth(w, r)
 			if err != nil {
 				app.unauthorizedBasicErrorResponse(w, r, err)
 				return
 			}
 
-			// check the credentials
-			creds := strings.SplitN(string(decoded), ":", 2)
-			if len(creds) != 2 {
-				app.unauthorizedBasicErrorResponse(w, r, errors.New("invalid credentials"))
-				return
-			}
-
-			payload := LoginUserPayload{
-				Password: creds[1],
-				Username: creds[0],
-			}
-
-			if err := Validate.Struct(payload); err != nil {
-				app.clearSessionCookie(w)
-				app.badRequestResponse(w, r, err)
-				return
-			}
-
-			ctx := r.Context()
-
-			// check the user
-			user, err := app.store.Users.GetByUsername(ctx, payload.Username)
+			user, err := app.verifyUserCredentials(w, r, payload)
 			if err != nil {
-				if errors.Is(err, store.ErrNotFound) {
-					app.clearSessionCookie(w)
-					app.unauthorizedBasicErrorResponse(w, r, errInvalidUsernameOrPassword)
-					return
-				}
-
-				app.internalServerError(w, r, err)
 				return
 			}
 
-			// check the user password
-			if !user.Password.CheckHash(payload.Password) {
-				app.unauthorizedBasicErrorResponse(w, r, errInvalidUsernameOrPassword)
+			if err := app.createAndSetSessionAndToken(w, r, user); err != nil {
 				return
 			}
-
-			token, tokenHash, err := NewSessionToken()
-			if err != nil {
-				app.internalServerError(w, r, err)
-				return
-			}
-
-			session := store.SessionData{
-				UserID:    user.ID,
-				Token:     token,
-				TokenHash: tokenHash,
-				UserAgent: r.Header.Get("User-Agent"),
-				IPAdress:  httputils.GetClientIP(r),
-				IsRevoke:  false,
-				ExpiresAt: time.Now().Add(app.config.auth.tokens.sessionTokenExp),
-			}
-
-			if err := app.store.Sessions.CreateSession(ctx, &session); err != nil {
-				app.internalServerError(w, r, err)
-				return
-			}
-
-			cookie := http.Cookie{
-				Name:     sessionCookieName,
-				Value:    token,
-				Path:     "/",
-				HttpOnly: true,
-				Secure:   true,
-				SameSite: http.SameSiteLaxMode,
-				Expires:  session.ExpiresAt,
-			}
-
-			// response := &RegisterUserResponse{
-			// 	User: user,
-			// 	// Token: token,
-			// }
-
-			http.SetCookie(w, &cookie)
-
-			// create new Access Token
-			accesstoken, accessTokenExp, err := app.generateAccessToken(session.UserID, "user")
-			if err != nil {
-				app.internalServerError(w, r, err)
-				return
-			}
-
-			// set new Access Token to coockie
-			setAccessTokenCookie(w, accesstoken, accessTokenExp)
-
-			// if err := app.jsonResponse(w, http.StatusOK, response); err != nil {
-			// 	app.internalServerError(w, r, err)
-			// 	return
-			// }
 
 			next.ServeHTTP(w, r)
 		})
@@ -137,34 +39,9 @@ func (app *application) AuthMiddleware() func(http.Handler) http.Handler {
 func (app *application) basicAuthMiddleware() func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			// read the auth header
-			authHeader := r.Header.Get("Authorization")
-			if authHeader == "" {
-				app.unauthorizedBasicErrorResponse(w, r, errors.New("authorization header is missing"))
-				return
-			}
-
-			// parse it -> get the base64
-			parts := strings.Split(authHeader, " ")
-			if len(parts) <= 1 || parts[0] != "Basic" {
-				app.unauthorizedBasicErrorResponse(w, r, errors.New("authorization header is malformed"))
-				return
-			}
-
-			// decode it
-			decoded, err := base64.StdEncoding.DecodeString(parts[1])
+			_, err := app.extractAndValidateBasicAuth(w, r)
 			if err != nil {
 				app.unauthorizedBasicErrorResponse(w, r, err)
-				return
-			}
-
-			username := app.config.auth.basic.username
-			pass := app.config.auth.basic.password
-
-			// check the credentials
-			creds := strings.SplitN(string(decoded), ":", 2)
-			if len(creds) != 2 || creds[0] != username || creds[1] != pass {
-				app.unauthorizedBasicErrorResponse(w, r, errors.New("invalid credentials"))
 				return
 			}
 
@@ -176,10 +53,12 @@ func (app *application) basicAuthMiddleware() func(http.Handler) http.Handler {
 func (app *application) checkPostOwnership(roleName string, next http.HandlerFunc) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
+
 		userID, err := getAuthUserIDFromCtx(r)
 		if err != nil {
 			// This should not happen if the middleware is working correctly
 			app.internalServerError(w, r, err)
+
 			return
 		}
 
@@ -191,6 +70,7 @@ func (app *application) checkPostOwnership(roleName string, next http.HandlerFun
 			default:
 				app.internalServerError(w, r, err)
 			}
+
 			return
 		}
 
@@ -198,12 +78,14 @@ func (app *application) checkPostOwnership(roleName string, next http.HandlerFun
 		if err != nil {
 			// This should not happen if the middleware is working correctly
 			app.internalServerError(w, r, err)
+
 			return
 		}
 
 		post, err := app.store.Posts.GetPostModel(ctx, postID)
 		if err != nil {
 			app.internalServerError(w, r, err)
+
 			return
 		}
 
@@ -211,10 +93,13 @@ func (app *application) checkPostOwnership(roleName string, next http.HandlerFun
 			ok, err := app.checkRolePrecedence(ctx, userWithRole, roleName)
 			if err != nil {
 				app.internalServerError(w, r, err)
+
 				return
 			}
+
 			if !ok {
 				app.forbiddenResponse(w, r)
+
 				return
 			}
 		}
@@ -233,6 +118,7 @@ func (app *application) checkUserOwnership(roleName string, next http.HandlerFun
 		if err != nil {
 			// This should not happen if the middleware is working correctly
 			app.internalServerError(w, r, err)
+
 			return
 		}
 
@@ -240,7 +126,8 @@ func (app *application) checkUserOwnership(roleName string, next http.HandlerFun
 		userID, err := getAuthUserIDFromCtx(r)
 		if err != nil {
 			// This should not happen if the middleware is working correctly
-			app.internalServerError(w, r, errors.New("authenticated user missing from context"))
+			app.internalServerError(w, r, errAuthUserMissing)
+
 			return
 		}
 
@@ -248,6 +135,7 @@ func (app *application) checkUserOwnership(roleName string, next http.HandlerFun
 		userWithRole, err := app.getUserWithRole(ctx, userID)
 		if err != nil {
 			app.internalServerError(w, r, err)
+
 			return
 		}
 
@@ -257,11 +145,13 @@ func (app *application) checkUserOwnership(roleName string, next http.HandlerFun
 			ok, err := app.checkRolePrecedence(ctx, userWithRole, roleName)
 			if err != nil {
 				app.internalServerError(w, r, err)
+
 				return
 			}
 
 			if !ok {
 				app.forbiddenResponse(w, r)
+
 				return
 			}
 		}
@@ -276,11 +166,13 @@ func (app *application) userContextMiddleware(next http.Handler) http.Handler {
 		id, err := parseUserID(r)
 		if err != nil {
 			app.badRequestResponse(w, r, err)
+
 			return
 		}
 
 		ctx := r.Context()
-		user, err := app.getUser(ctx, (int64)(id))
+
+		user, err := app.getUser(ctx, id)
 		if err != nil {
 			switch {
 			case errors.Is(err, store.ErrNotFound):
@@ -288,6 +180,7 @@ func (app *application) userContextMiddleware(next http.Handler) http.Handler {
 			default:
 				app.internalServerError(w, r, err)
 			}
+
 			return
 		}
 
@@ -302,11 +195,13 @@ func (app *application) accessTokenMiddleware(next http.Handler) http.Handler {
 		cookie, err := r.Cookie(accessCookieName)
 		if err != nil {
 			if errors.Is(err, http.ErrNoCookie) {
-				app.statusUnauthorizedError(w, r, errors.New("access token has expired"))
+				app.statusUnauthorizedError(w, r, errAccessTokenExpired)
+
 				return
 			}
 
 			app.badRequestResponse(w, r, err)
+
 			return
 		}
 
@@ -315,6 +210,7 @@ func (app *application) accessTokenMiddleware(next http.Handler) http.Handler {
 		if err != nil {
 			app.clearAccessCookie(w)
 			app.statusUnauthorizedError(w, r, err)
+
 			return
 		}
 
@@ -332,10 +228,12 @@ func (app *application) postContextMiddleware(next http.Handler) http.Handler {
 		if err != nil {
 			// This should not happen if the middleware is working correctly
 			app.internalServerError(w, r, err)
+
 			return
 		}
 
 		ctx := r.Context()
+
 		post, err := app.store.Posts.GetPost(ctx, id)
 		if err != nil {
 			switch {
@@ -344,6 +242,7 @@ func (app *application) postContextMiddleware(next http.Handler) http.Handler {
 			default:
 				app.internalServerError(w, r, err)
 			}
+
 			return
 		}
 
@@ -354,9 +253,12 @@ func (app *application) postContextMiddleware(next http.Handler) http.Handler {
 
 func (app *application) postIDContextMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		id, err := parsePostID(r)
+		idParam := chi.URLParam(r, "postsID")
+
+		id, err := strconv.ParseInt(idParam, 10, 64)
 		if err != nil {
 			app.internalServerError(w, r, err)
+
 			return
 		}
 
@@ -371,6 +273,7 @@ func (app *application) rateLimiterMiddleWare(next http.Handler) http.Handler {
 
 		if !OK {
 			app.rateLimitExceededResponse(w, r, fmt.Sprint(retryAfter))
+
 			return
 		}
 

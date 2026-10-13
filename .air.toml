@@ -41,7 +41,10 @@ tmp_dir = "bin"
     post_cmd = ["caddy stop"]
     pre_cmd = ["caddy fmt --overwrite",
               "caddy start", 
-              "make gen-docs"]
+              "make gen-docs",
+              "golint ./...",
+              "go.exe vet ./...",
+              "golangci-lint.exe run ./..."]
 
 [color]
   app = ""

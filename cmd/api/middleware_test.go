@@ -2,13 +2,13 @@ package main
 
 import (
 	"context"
-	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
 	"testing"
 	"time"
 
+	config1 "github.com/CepeshIII/Project07_API_Server/internal/config"
 	"github.com/CepeshIII/Project07_API_Server/internal/ratelimiter"
 	"github.com/CepeshIII/Project07_API_Server/internal/store"
 	"github.com/CepeshIII/Project07_API_Server/internal/store/cache"
@@ -34,7 +34,9 @@ func TestRateLimiterMiddleWare(t *testing.T) {
 			MockSetup: func(m *ratelimiter.MockRateLimiter) {
 				m.On("Allow", ip).Return(true, retryAfter)
 			},
-			ResultCheck: func(t *testing.T, rr *httptest.ResponseRecorder) {},
+			ResultCheck: func(t *testing.T, rr *httptest.ResponseRecorder) {
+				t.Helper() // Satisfies the thelper linter rule
+			},
 		},
 		{
 			Name:           "should reject request when limiter does not allow",
@@ -43,6 +45,8 @@ func TestRateLimiterMiddleWare(t *testing.T) {
 				m.On("Allow", ip).Return(false, retryAfter)
 			},
 			ResultCheck: func(t *testing.T, rr *httptest.ResponseRecorder) {
+				t.Helper() // Satisfies the thelper linter rule
+
 				retryAfterHeader := rr.Header().Get("Retry-After")
 				assert.NotEmpty(t, retryAfterHeader)
 			},
@@ -64,7 +68,7 @@ func TestRateLimiterMiddleWare(t *testing.T) {
 				w.WriteHeader(http.StatusOK)
 			}))
 
-			req := httptest.NewRequest("GET", "/", nil)
+			req := httptest.NewRequest(http.MethodGet, "/", nil)
 			req.RemoteAddr = ip
 			rr := httptest.NewRecorder()
 
@@ -107,7 +111,7 @@ func TestUserContextMiddleware(t *testing.T) {
 			name:        "database error (500)",
 			userIDParam: "1",
 			mockSetup: func(m *store.MockUserStore) {
-				m.On("Get", mock.Anything, int64(1)).Return(nil, errors.New("db connection lost"))
+				m.On("Get", mock.Anything, int64(1)).Return(nil, store.ErrUnexpected)
 			},
 			expectedStatus: http.StatusInternalServerError,
 		},
@@ -179,6 +183,7 @@ func TestCheckUserOwnershipMiddleware(t *testing.T) {
 			contextSetup: func(r *http.Request) *http.Request {
 				ctx := context.WithValue(r.Context(), authUserIDCtxKey, authUser.ID)
 				ctx = context.WithValue(ctx, targetUserCtxKey, authUser)
+
 				return r.WithContext(ctx)
 			},
 			mockSetup: func(su *store.MockUserStore, cu *cache.MockUserStore, sr *store.MockRolesStore, cr *cache.MockRolesStore) {
@@ -194,6 +199,7 @@ func TestCheckUserOwnershipMiddleware(t *testing.T) {
 			contextSetup: func(r *http.Request) *http.Request {
 				ctx := context.WithValue(r.Context(), authUserIDCtxKey, authUser.ID)
 				ctx = context.WithValue(ctx, targetUserCtxKey, authUser)
+
 				return r.WithContext(ctx)
 			},
 			mockSetup: func(su *store.MockUserStore, cu *cache.MockUserStore, sr *store.MockRolesStore, cr *cache.MockRolesStore) {
@@ -209,6 +215,7 @@ func TestCheckUserOwnershipMiddleware(t *testing.T) {
 			contextSetup: func(r *http.Request) *http.Request {
 				ctx := context.WithValue(r.Context(), authUserIDCtxKey, authUser.ID)
 				ctx = context.WithValue(ctx, targetUserCtxKey, targetUser)
+
 				return r.WithContext(ctx)
 			},
 			mockSetup: func(su *store.MockUserStore, cu *cache.MockUserStore, sr *store.MockRolesStore, cr *cache.MockRolesStore) {
@@ -225,6 +232,7 @@ func TestCheckUserOwnershipMiddleware(t *testing.T) {
 			contextSetup: func(r *http.Request) *http.Request {
 				ctx := context.WithValue(r.Context(), authUserIDCtxKey, authUser.ID)
 				ctx = context.WithValue(ctx, targetUserCtxKey, targetUser)
+
 				return r.WithContext(ctx)
 			},
 			mockSetup: func(su *store.MockUserStore, cu *cache.MockUserStore, sr *store.MockRolesStore, cr *cache.MockRolesStore) {
@@ -241,6 +249,7 @@ func TestCheckUserOwnershipMiddleware(t *testing.T) {
 			contextSetup: func(r *http.Request) *http.Request {
 				ctx := context.WithValue(r.Context(), authUserIDCtxKey, adminUser.ID)
 				ctx = context.WithValue(ctx, targetUserCtxKey, targetUser)
+
 				return r.WithContext(ctx)
 			},
 			mockSetup: func(su *store.MockUserStore, cu *cache.MockUserStore, sr *store.MockRolesStore, cr *cache.MockRolesStore) {
@@ -257,6 +266,7 @@ func TestCheckUserOwnershipMiddleware(t *testing.T) {
 			contextSetup: func(r *http.Request) *http.Request {
 				ctx := context.WithValue(r.Context(), authUserIDCtxKey, adminUser.ID)
 				ctx = context.WithValue(ctx, targetUserCtxKey, targetUser)
+
 				return r.WithContext(ctx)
 			},
 			mockSetup: func(su *store.MockUserStore, cu *cache.MockUserStore, sr *store.MockRolesStore, cr *cache.MockRolesStore) {
@@ -272,6 +282,7 @@ func TestCheckUserOwnershipMiddleware(t *testing.T) {
 			expectedStatus: http.StatusInternalServerError,
 			contextSetup: func(r *http.Request) *http.Request {
 				ctx := context.WithValue(r.Context(), authUserIDCtxKey, authUser.ID)
+
 				return r.WithContext(ctx)
 			},
 			mockSetup: func(su *store.MockUserStore, cu *cache.MockUserStore, sr *store.MockRolesStore, cr *cache.MockRolesStore) {
@@ -284,6 +295,7 @@ func TestCheckUserOwnershipMiddleware(t *testing.T) {
 			expectedStatus: http.StatusInternalServerError,
 			contextSetup: func(r *http.Request) *http.Request {
 				ctx := context.WithValue(r.Context(), targetUserCtxKey, authUser)
+
 				return r.WithContext(ctx)
 			},
 			mockSetup: func(su *store.MockUserStore, cu *cache.MockUserStore, sr *store.MockRolesStore, cr *cache.MockRolesStore) {
@@ -297,10 +309,11 @@ func TestCheckUserOwnershipMiddleware(t *testing.T) {
 			contextSetup: func(r *http.Request) *http.Request {
 				ctx := context.WithValue(r.Context(), authUserIDCtxKey, authUser.ID)
 				ctx = context.WithValue(ctx, targetUserCtxKey, authUser)
+
 				return r.WithContext(ctx)
 			},
 			mockSetup: func(su *store.MockUserStore, cu *cache.MockUserStore, sr *store.MockRolesStore, cr *cache.MockRolesStore) {
-				su.On("Get", mock.Anything, authUser.ID).Return(authUser, errors.New("db error"))
+				su.On("Get", mock.Anything, authUser.ID).Return(authUser, store.ErrUnexpected)
 			},
 		},
 		{
@@ -311,17 +324,18 @@ func TestCheckUserOwnershipMiddleware(t *testing.T) {
 			contextSetup: func(r *http.Request) *http.Request {
 				ctx := context.WithValue(r.Context(), authUserIDCtxKey, authUser.ID)
 				ctx = context.WithValue(ctx, targetUserCtxKey, authUser)
+
 				return r.WithContext(ctx)
 			},
 			mockSetup: func(su *store.MockUserStore, cu *cache.MockUserStore, sr *store.MockRolesStore, cr *cache.MockRolesStore) {
 				su.On("Get", mock.Anything, authUser.ID).Return(authUser, nil)
 				sr.On("GetRoleByID", mock.Anything, userRole.ID).Return(userRole, nil)
 
-				cu.On("GetUserByID", mock.Anything, authUser.ID).Return(authUser, errors.New("cache error"))
-				cr.On("GetRoleByID", mock.Anything, userRole.ID).Return(userRole, errors.New("cache error"))
+				cu.On("GetUserByID", mock.Anything, authUser.ID).Return(authUser, store.ErrUnexpected)
+				cr.On("GetRoleByID", mock.Anything, userRole.ID).Return(userRole, store.ErrUnexpected)
 
-				cu.On("SetUser", mock.Anything, authUser).Return(errors.New("cache error"))
-				cr.On("SetRole", mock.Anything, userRole).Return(errors.New("cache error"))
+				cu.On("SetUser", mock.Anything, authUser).Return(store.ErrUnexpected)
+				cr.On("SetRole", mock.Anything, userRole).Return(store.ErrUnexpected)
 			},
 		},
 	}
@@ -345,9 +359,9 @@ func TestCheckUserOwnershipMiddleware(t *testing.T) {
 					Roles: mockCacheRoleStore,
 				},
 				logger: zap.NewNop().Sugar(),
-				config: config{
-					redisCfg: redisConfig{
-						enabled: tt.cachingEnabled,
+				config: config1.Config{
+					Redis: config1.RedisConfig{
+						Enabled: tt.cachingEnabled,
 					},
 				},
 			}

@@ -2,12 +2,11 @@ package main
 
 import (
 	"errors"
-	"fmt"
 	"net/http"
 	"time"
 
+	"github.com/CepeshIII/Project07_API_Server/internal/credential"
 	"github.com/CepeshIII/Project07_API_Server/internal/httputils"
-	"github.com/CepeshIII/Project07_API_Server/internal/mailer"
 	"github.com/CepeshIII/Project07_API_Server/internal/store"
 )
 
@@ -47,7 +46,7 @@ func (app *application) registerUserHandler(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	if err := Validate.Struct(payload); err != nil {
+	if err := app.validator.Struct(payload); err != nil {
 		app.badRequestResponse(w, r, err)
 		return
 	}
@@ -70,70 +69,22 @@ func (app *application) registerUserHandler(w http.ResponseWriter, r *http.Reque
 
 	ctx := r.Context()
 
-	plainToken, tokenHash, err := NewInvitationToken()
-	if err != nil {
-		app.internalServerError(w, r, err)
-		return
-	}
+	plainToken, tokenHash := credential.New()
 
 	// store the user
-	if err := app.store.Users.CreateAndInvite(ctx, userWithRole, tokenHash, app.config.mail.exp); err != nil {
-		if errors.Is(err, store.ErrorDuplicateEmail) || errors.Is(err, store.ErrorDuplicateUsername) {
+	if err := app.store.Users.CreateAndInvite(ctx, userWithRole, tokenHash, app.config.Mail.Exp); err != nil {
+		if errors.Is(err, store.ErrDuplicateEmail) || errors.Is(err, store.ErrDuplicateUsername) {
 			app.conflictResponse(w, r, err)
 			return
 		}
 
 		app.internalServerError(w, r, err)
+
 		return
 	}
 
-	activationURL := fmt.Sprintf("%s/confirm/%s", app.config.frontendURL, plainToken)
-
-	vars := struct {
-		Username      string
-		ActivationURL string
-	}{
-		Username:      userWithRole.Username,
-		ActivationURL: activationURL,
-	}
-
-	compiledTemplate, err := mailer.BuildTemplate(mailer.UserWelcomeTemplate, vars)
-	if err != nil {
+	if err := app.sendUserActivation(r.Context(), plainToken, userWithRole); err != nil {
 		app.internalServerError(w, r, err)
-		return
-	}
-
-	var lastSendErr error
-	var successSend bool
-	for i := range app.config.mail.maxRetries {
-		lastSendErr = app.mailer.Send(r.Context(), userWithRole.Username, userWithRole.Email, compiledTemplate)
-
-		if lastSendErr == nil {
-			successSend = true
-			break
-		}
-
-		app.logger.Warnw("failed to send activation email",
-			"attempt", i+1,
-			"max_retries", app.config.mail.maxRetries,
-			"email", userWithRole.Email,
-			"error", lastSendErr,
-		)
-
-		// exponential backoff before retrying
-		time.Sleep(time.Second * time.Duration(i+1))
-		continue
-
-	}
-
-	// send the invitation email
-	if !successSend {
-		// rollback the user creation if email sending fails (SAGA pattern)
-		if rollbackErr := app.store.Users.DeleteUserAndInvitation(ctx, userWithRole.ID); rollbackErr != nil {
-			app.logger.Errorw("error rolling back user creation", "error", rollbackErr)
-		}
-
-		app.internalServerError(w, r, lastSendErr)
 		return
 	}
 
@@ -168,12 +119,14 @@ func (app *application) loginUserHandler(w http.ResponseWriter, r *http.Request)
 	if err := readJSON(w, r, &payload); err != nil {
 		app.clearSessionCookie(w)
 		app.badRequestResponse(w, r, err)
+
 		return
 	}
 
-	if err := Validate.Struct(payload); err != nil {
+	if err := app.validator.Struct(payload); err != nil {
 		app.clearSessionCookie(w)
 		app.badRequestResponse(w, r, err)
+
 		return
 	}
 
@@ -185,10 +138,12 @@ func (app *application) loginUserHandler(w http.ResponseWriter, r *http.Request)
 		if errors.Is(err, store.ErrNotFound) {
 			app.clearSessionCookie(w)
 			app.statusUnauthorizedError(w, r, errInvalidUsernameOrPassword)
+
 			return
 		}
 
 		app.internalServerError(w, r, err)
+
 		return
 	}
 
@@ -198,11 +153,7 @@ func (app *application) loginUserHandler(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	token, tokenHash, err := NewSessionToken()
-	if err != nil {
-		app.internalServerError(w, r, err)
-		return
-	}
+	token, tokenHash := credential.New()
 
 	// create new session
 	session := store.SessionData{
@@ -212,7 +163,7 @@ func (app *application) loginUserHandler(w http.ResponseWriter, r *http.Request)
 		UserAgent: r.Header.Get("User-Agent"),
 		IPAdress:  httputils.GetClientIP(r),
 		IsRevoke:  false,
-		ExpiresAt: time.Now().Add(app.config.auth.tokens.sessionTokenExp),
+		ExpiresAt: time.Now().Add(app.config.Auth.Tokens.SessionTokenExp),
 	}
 
 	// store session in DB
@@ -261,14 +212,17 @@ func (app *application) refreshAccessTokenHandler(w http.ResponseWriter, r *http
 	cookie, err := r.Cookie(sessionCookieName)
 	if err != nil {
 		if errors.Is(err, http.ErrNoCookie) {
-			app.statusUnauthorizedError(w, r, errors.New("session token has expired"))
+			app.statusUnauthorizedError(w, r, errSessionTokenExpired)
 			return
 		}
+
 		app.badRequestResponse(w, r, err)
+
 		return
 	}
+
 	sessionToken := cookie.Value
-	tokenHash := HashToken(sessionToken)
+	tokenHash := credential.Hash(sessionToken)
 
 	// Check session token in the database
 	session := store.SessionData{
@@ -278,22 +232,27 @@ func (app *application) refreshAccessTokenHandler(w http.ResponseWriter, r *http
 	if err := app.store.Sessions.GetSessionByTokenHash(r.Context(), &session); err != nil {
 		if errors.Is(err, store.ErrNotFound) {
 			app.clearSessionCookie(w)
-			app.statusUnauthorizedError(w, r, errors.New("session not found or invalid"))
+			app.statusUnauthorizedError(w, r, errSessionNotFoundOrInvalid)
+
 			return
 		}
+
 		app.internalServerError(w, r, err)
+
 		return
 	}
 
 	if session.IsRevoke {
 		app.clearSessionCookie(w)
-		app.statusUnauthorizedError(w, r, errors.New("session has been revoked"))
+		app.statusUnauthorizedError(w, r, errSessionRevoked)
+
 		return
 	}
 
 	if time.Now().After(session.ExpiresAt) {
 		app.clearSessionCookie(w)
-		app.statusUnauthorizedError(w, r, errors.New("session has expired"))
+		app.statusUnauthorizedError(w, r, errSessionExpired)
+
 		return
 	}
 

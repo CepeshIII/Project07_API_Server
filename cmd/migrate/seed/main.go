@@ -1,6 +1,9 @@
+// Package main serves as the entry point for database seeding and initialization.
 package main
 
 import (
+	"fmt"
+
 	"github.com/CepeshIII/Project07_API_Server/internal/db"
 	"github.com/CepeshIII/Project07_API_Server/internal/env"
 	"github.com/CepeshIII/Project07_API_Server/internal/store"
@@ -15,12 +18,16 @@ func main() {
 		env.GetInt("DB_MAX_IDLE_CONNS", 3),
 		env.GetString("DB_MAX_IDLE_TIME", "15m"),
 	)
-
 	if err != nil {
 		panic(err)
 	}
 
-	defer conn.Close()
+	defer func() {
+		err := conn.Close()
+		if err != nil {
+			fmt.Println(err.Error())
+		}
+	}()
 
 	store := store.NewStorage(conn)
 

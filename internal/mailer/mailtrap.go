@@ -2,25 +2,34 @@ package mailer
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/mailtrap/mailtrap-go"
 )
 
+const (
+	// mailtrapSandboxID defines the default sandbox ID configuration for Mailtrap testing.
+	mailtrapSandboxID = 4840248
+)
+
+var errMailtrapRequestFailed = errors.New("mailtrap provider error: request was not successful")
+
+// MailtrapMailer implements the Client interface for sending emails via Mailtrap.
 type MailtrapMailer struct {
 	fromEmail string
 	apiKey    string
 	client    *mailtrap.Client
 }
 
+// NewMailtrap creates and returns a new MailtrapMailer instance.
 func NewMailtrap(apiKey, fromEmail string, isSandbox bool) (*MailtrapMailer, error) {
 	client, err := mailtrap.NewClient(apiKey,
 		mailtrap.WithSandbox(isSandbox),
-		mailtrap.WithSandboxID(4840248),
+		mailtrap.WithSandboxID(mailtrapSandboxID),
 	)
-
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create mailtrap client: %w", err)
 	}
 
 	return &MailtrapMailer{
@@ -30,6 +39,7 @@ func NewMailtrap(apiKey, fromEmail string, isSandbox bool) (*MailtrapMailer, err
 	}, nil
 }
 
+// Send delivers an email message via the Mailtrap API client.
 func (m *MailtrapMailer) Send(ctx context.Context, username, userEmail string, compiledTemplate CompiledTemplate) error {
 	request := &mailtrap.SendRequest{
 		From:     mailtrap.Address{Email: m.fromEmail, Name: "Mailtrap Test"},
@@ -42,11 +52,11 @@ func (m *MailtrapMailer) Send(ctx context.Context, username, userEmail string, c
 	// Pass HTTP/Request context down to the mail client
 	response, _, err := m.client.Send(ctx, request)
 	if err != nil {
-		return fmt.Errorf("mailtrap network request failed: %w", err)
+		return errors.Join(errMailtrapRequestFailed, err)
 	}
 
 	if !response.Success {
-		return fmt.Errorf("mailtrap provider error: request was not successful")
+		return errMailtrapRequestFailed
 	}
 
 	return nil

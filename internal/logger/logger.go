@@ -1,7 +1,9 @@
+// Package logger provides structured logging initialization using Uber Zap.
 package logger
 
 import "go.uber.org/zap"
 
+// NewLogger initializes and returns a new Zap sugared logger based on the target environment.
 func NewLogger(environment string) *zap.SugaredLogger {
 	var l *zap.Logger
 

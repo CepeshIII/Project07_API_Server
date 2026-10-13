@@ -218,18 +218,6 @@
                             "$ref": "#/definitions/main.PostsPostWithMetadataEnvelope"
                         }
                     },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/main.ErrorEnvelope"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/main.ErrorEnvelope"
-                        }
-                    },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
@@ -272,11 +260,17 @@
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "$ref": "#/definitions/store.Post"
+                            "$ref": "#/definitions/main.MessageEnvelope"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/main.ErrorEnvelope"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
                         "schema": {
                             "$ref": "#/definitions/main.ErrorEnvelope"
                         }
@@ -377,8 +371,8 @@
                             "$ref": "#/definitions/main.MessageEnvelope"
                         }
                     },
-                    "400": {
-                        "description": "Bad Request",
+                    "401": {
+                        "description": "Unauthorized",
                         "schema": {
                             "$ref": "#/definitions/main.ErrorEnvelope"
                         }
@@ -445,6 +439,12 @@
                             "$ref": "#/definitions/main.ErrorEnvelope"
                         }
                     },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/main.ErrorEnvelope"
+                        }
+                    },
                     "404": {
                         "description": "Not Found",
                         "schema": {
@@ -492,12 +492,6 @@
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/main.CommentsEnvelope"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/main.ErrorEnvelope"
                         }
                     },
                     "404": {
@@ -558,6 +552,12 @@
                     },
                     "400": {
                         "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/main.ErrorEnvelope"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
                         "schema": {
                             "$ref": "#/definitions/main.ErrorEnvelope"
                         }
@@ -898,9 +898,13 @@
         },
         "main.CreateCommentPayload": {
             "type": "object",
+            "required": [
+                "content"
+            ],
             "properties": {
                 "content": {
-                    "type": "string"
+                    "type": "string",
+                    "maxLength": 500
                 }
             }
         },

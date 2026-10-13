@@ -1,3 +1,5 @@
+// Package main is the entry point for the Project07 API Server,
+// handling server initialization, routing, and configuration setup.
 package main
 
 import (
@@ -9,14 +11,14 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
-	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/go-playground/validator/v10"
 
 	"github.com/CepeshIII/Project07_API_Server/docs"
 	"github.com/CepeshIII/Project07_API_Server/internal/auth"
-	"github.com/CepeshIII/Project07_API_Server/internal/env"
+	config1 "github.com/CepeshIII/Project07_API_Server/internal/config"
 	"github.com/CepeshIII/Project07_API_Server/internal/mailer"
 	"github.com/CepeshIII/Project07_API_Server/internal/ratelimiter"
 	"github.com/CepeshIII/Project07_API_Server/internal/store"
@@ -27,95 +29,14 @@ import (
 )
 
 type application struct {
-	config       config
+	config       config1.Config
 	store        store.Storage
 	logger       *zap.SugaredLogger
 	mailer       mailer.Client
 	auth         auth.Authenticator
 	cacheStorage cache.Storage
 	rateLimiter  ratelimiter.Limiter
-}
-
-type mailConfig struct {
-	exp        time.Duration
-	fromEmail  string
-	maxRetries int
-	sendGrid   sendGridConfig
-	mailtrap   mailtrapConfig
-}
-
-type sendGridConfig struct {
-	apikey string
-}
-
-type mailtrapConfig struct {
-	apikey string
-}
-
-type jwtAuthConfig struct {
-	jwtSecret string
-	iss       string
-}
-
-type config struct {
-	addr        string
-	db          dbConfig
-	env         string
-	apiURL      string
-	mail        mailConfig
-	frontendURL string
-	loggerEnv   string
-	auth        authConfig
-	redisCfg    redisConfig
-	rateLimiter ratelimiter.Config
-}
-
-type redisConfig struct {
-	addr    string
-	pw      string
-	db      int
-	enabled bool
-}
-
-type authConfig struct {
-	basic   basicAuthConfig
-	jwtAuth jwtAuthConfig
-	tokens  tokensConfig
-}
-
-type basicAuthConfig struct {
-	username string
-	password string
-}
-
-type tokensConfig struct {
-	accessTokenExp  time.Duration
-	sessionTokenExp time.Duration
-}
-
-type dbConfig struct {
-	address      string
-	maxOpenConns int
-	maxIdleConns int
-	maxIdleTime  string
-}
-
-func DefaultDBConfig() dbConfig {
-	addr := env.GetString("DB_ADDR",
-		"postgres://admin:adminpassword@localhost:5433/social?sslmode=disable")
-
-	maxOpenConns := env.GetInt("DB_MAX_OPEN_CONNS", 30)
-	maxIdleConns := env.GetInt("DB_MAX_IDLE_CONNS", 30)
-	maxIdleTime := env.GetString("DB_MAX_IDLE_TIME", "15m")
-
-	db := dbConfig{
-		address:      addr,
-		maxOpenConns: maxOpenConns,
-		maxIdleConns: maxIdleConns,
-		maxIdleTime:  maxIdleTime,
-	}
-
-	return db
+	validator    *validator.Validate
 }
 
 func (app *application) mount() http.Handler {
@@ -132,12 +53,11 @@ func (app *application) mount() http.Handler {
 	// Set a timeout value on the request context (ctx), that will signal
 	// through ctx.Done() that the request has timed out and further
 	// processing should be stopped.
-	r.Use(middleware.Timeout(60 * time.Second))
+	r.Use(middleware.Timeout(app.config.Server.RequestTimeout))
 
-	docsURL := fmt.Sprintf("%s/swagger/doc.json", app.config.addr)
+	docsURL := app.config.Addr + "/swagger/doc.json"
 
 	r.Route("/v1", func(r chi.Router) {
-
 		r.Get("/health", app.healthCheckHandler)
 		r.With(app.basicAuthMiddleware()).Get("/metrics", expvar.Handler().ServeHTTP)
 
@@ -169,22 +89,17 @@ func (app *application) mount() http.Handler {
 					r.Post("/comments", app.createCommentHandler)
 				})
 			})
-
 		})
 
 		r.Route("/users", func(r chi.Router) {
-
 			r.Put("/activate/{token}", app.activateUserHandler)
 			r.Options("/activate/{token}", app.healthCheckHandler)
-
-			r.Group(func(r chi.Router) {
-				r.Get("/feed", app.getUserFeedHandler)
-			})
 
 			r.Route("/{userID}", func(r chi.Router) {
 				r.Use(app.userContextMiddleware)
 
 				r.Get("/", app.getUserHandler)
+				r.Get("/feed", app.getUserFeedHandler)
 				r.Get("/followers", app.getFollowersHandler)
 
 				r.Group(func(r chi.Router) {
@@ -195,7 +110,6 @@ func (app *application) mount() http.Handler {
 					r.Delete("/", app.checkUserOwnership("admin", app.deleteUserHandler))
 				})
 			})
-
 		})
 
 		r.Route("/auth", func(r chi.Router) {
@@ -203,27 +117,57 @@ func (app *application) mount() http.Handler {
 			r.Post("/refresh", app.refreshAccessTokenHandler)
 			r.Post("/login", app.loginUserHandler)
 		})
-
 	})
 
 	return r
 }
+
 func (app *application) run(mux http.Handler) error {
 	// Docs
 	docs.SwaggerInfo.Version = version
-	docs.SwaggerInfo.Host = app.config.apiURL
+	docs.SwaggerInfo.Host = app.config.ExternalURL
 	docs.SwaggerInfo.BasePath = "/v1"
 
 	srv := http.Server{
-		Addr:         app.config.addr,
+		Addr:         app.config.Addr,
 		Handler:      mux,
-		WriteTimeout: 30 * time.Second,
-		ReadTimeout:  10 * time.Second,
-		IdleTimeout:  1 * time.Minute,
+		WriteTimeout: app.config.Server.WriteTimeout,
+		ReadTimeout:  app.config.Server.ReadTimeout,
+		IdleTimeout:  app.config.Server.IdleTimeout,
 	}
 
+	// Create a channel to communicate the final shutdown status (an error or nil) back to the main function
 	shutdown := make(chan error)
 
+	// Call the clean helper method instead of a massive inline block
+	app.waitForShutdown(shutdown, &srv)
+
+	app.logger.Info(
+		"Server starting at " + app.config.Addr,
+	)
+
+	// Start server in a separate goroutine
+	go func() {
+		app.logger.Infow("Starting server", "addr", srv.Addr)
+
+		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			shutdown <- err
+		}
+	}()
+
+	err := <-shutdown
+	if err != nil {
+		return fmt.Errorf("HTTP server shutdown failed: %w", err)
+	}
+
+	app.logger.Info(
+		"Server finished at " + app.config.Addr,
+	)
+
+	return nil
+}
+
+func (app *application) waitForShutdown(shutdown chan error, srv *http.Server) {
 	go func() {
 		quit := make(chan os.Signal, 1)
 		signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
@@ -232,7 +176,7 @@ func (app *application) run(mux http.Handler) error {
 
 		ctx, cancel := context.WithTimeout(
 			context.Background(),
-			5*time.Second,
+			app.config.Server.ShutdownTimeout,
 		)
 		defer cancel()
 
@@ -240,25 +184,4 @@ func (app *application) run(mux http.Handler) error {
 
 		shutdown <- srv.Shutdown(ctx)
 	}()
-
-	app.logger.Info(
-		fmt.Sprintf("Server starting at %s", app.config.addr),
-	)
-
-	err := srv.ListenAndServe()
-
-	if err != nil && !errors.Is(err, http.ErrServerClosed) {
-		return fmt.Errorf("HTTP server failed: %w", err)
-	}
-
-	err = <-shutdown
-	if err != nil {
-		return fmt.Errorf("HTTP server shutdown failed: %w", err)
-	}
-
-	app.logger.Info(
-		fmt.Sprintf("Server finished at %s", app.config.addr),
-	)
-
-	return nil
 }

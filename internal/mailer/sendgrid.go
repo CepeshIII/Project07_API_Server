@@ -2,12 +2,15 @@ package mailer
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"net/http"
 
 	"github.com/sendgrid/sendgrid-go"
 	"github.com/sendgrid/sendgrid-go/helpers/mail"
 )
 
+// SendGridMailer implements the Client interface for sending emails via SendGrid.
 type SendGridMailer struct {
 	fromEmail string
 	apiKey    string
@@ -15,6 +18,7 @@ type SendGridMailer struct {
 	isSandbox bool
 }
 
+// NewSendgrid creates and returns a new SendGridMailer instance.
 func NewSendgrid(apiKey, fromEmail string, isSandbox bool) *SendGridMailer {
 	client := sendgrid.NewSendClient(apiKey)
 
@@ -26,6 +30,7 @@ func NewSendgrid(apiKey, fromEmail string, isSandbox bool) *SendGridMailer {
 	}
 }
 
+// Send delivers an email message via the SendGrid API client.
 func (m *SendGridMailer) Send(ctx context.Context, username, userEmail string, compiledTemplate CompiledTemplate) error {
 	from := mail.NewEmail(FromName, m.fromEmail)
 	to := mail.NewEmail(username, userEmail)
@@ -43,11 +48,11 @@ func (m *SendGridMailer) Send(ctx context.Context, username, userEmail string, c
 
 	// Network / SDK error
 	if err != nil {
-		return fmt.Errorf("%w: %v", ErrEmailDeliveryFailed, err)
+		return errors.Join(ErrEmailDeliveryFailed, err)
 	}
 
-	// API status >= 300
-	if response.StatusCode == 300 {
+	// API error status check (catch all client and server errors)
+	if response.StatusCode >= http.StatusBadRequest {
 		return fmt.Errorf("%w: status %d (%s)", ErrEmailDeliveryFailed, response.StatusCode, response.Body)
 	}
 

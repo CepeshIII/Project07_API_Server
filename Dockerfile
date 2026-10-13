@@ -33,6 +33,10 @@ RUN go mod download
 
 COPY . .
 
+RUN go install github.com/swaggo/swag/cmd/swag@latest
+
+RUN swag init -g ./api/main.go -d cmd,internal && swag fmt
+
 
 # ============================================================
 # 3. Go production builder

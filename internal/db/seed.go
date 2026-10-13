@@ -4,7 +4,9 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"log"
 	"math/rand"
+	"strconv"
 	"time"
 
 	"github.com/CepeshIII/Project07_API_Server/internal/store"
@@ -165,6 +167,7 @@ func Seed(storage *store.Storage, db *sql.DB) error {
 	}
 
 	fmt.Println("Seeding complete")
+
 	return nil
 }
 
@@ -174,17 +177,23 @@ func generateUsers(count int) []*store.UserWithRole {
 		user := &store.UserWithRole{
 			User: store.User{
 				// ID:       int64(i),
-				Username: usernames[i%len(usernames)] + fmt.Sprintf("%d", i),
-				Email:    usernames[i%len(usernames)] + fmt.Sprintf("%d", i) + "@example.com",
+				Username: usernames[i%len(usernames)] + strconv.Itoa(i),
+				Email:    usernames[i%len(usernames)] + strconv.Itoa(i) + "@example.com",
 			},
 			Role: store.Role{
 				Name: "user",
 			},
 		}
-		user.Password.Set("password") // Set a default password for all users
+
+		err := user.Password.Set("password")
+		if err != nil { // Set a default password for all users
+			log.Panic(err.Error())
+		}
+
 		user.RoleID = 1
 		users = append(users, user)
 	}
+
 	return users
 }
 
@@ -202,6 +211,7 @@ func generatePosts(count int) []*store.PostModel {
 			},
 		})
 	}
+
 	return posts
 }
 
@@ -215,6 +225,7 @@ func generateComments(count int) []*store.Comment {
 			PostID:  int64(i),
 		})
 	}
+
 	return comments
 }
 
@@ -222,6 +233,7 @@ func generateFollowers(usersCount int, minFollowerCount int, maxFollowerCount in
 	rand.Uint32()
 
 	followers := make([]*store.FollowerModel, 0, usersCount)
+
 	var usersFollowersID = map[int]int{}
 
 	for userID := 1; userID <= usersCount; userID++ {
@@ -232,7 +244,7 @@ func generateFollowers(usersCount int, minFollowerCount int, maxFollowerCount in
 			delete(usersFollowersID, k)
 		}
 
-		for {
+		for range userFollowersCount * 10 {
 			if currentFollowersCount >= userFollowersCount {
 				break
 			}
@@ -243,6 +255,7 @@ func generateFollowers(usersCount int, minFollowerCount int, maxFollowerCount in
 			if !ok {
 				usersFollowersID[newFollowersID] = 1
 				currentFollowersCount++
+
 				followers = append(followers, &store.FollowerModel{
 					UserID:     int64(userID),
 					FollowerID: int64(newFollowersID),
@@ -250,5 +263,6 @@ func generateFollowers(usersCount int, minFollowerCount int, maxFollowerCount in
 			}
 		}
 	}
+
 	return followers
 }

@@ -10,7 +10,10 @@ definitions:
   main.CreateCommentPayload:
     properties:
       content:
+        maxLength: 500
         type: string
+    required:
+    - content
     type: object
   main.CreatePostPayload:
     properties:
@@ -374,14 +377,6 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/main.PostsPostWithMetadataEnvelope'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/main.ErrorEnvelope'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/main.ErrorEnvelope'
         "500":
           description: Internal Server Error
           schema:
@@ -409,9 +404,13 @@ paths:
         "201":
           description: Created
           schema:
-            $ref: '#/definitions/store.Post'
+            $ref: '#/definitions/main.MessageEnvelope'
         "400":
           description: Bad Request
+          schema:
+            $ref: '#/definitions/main.ErrorEnvelope'
+        "401":
+          description: Unauthorized
           schema:
             $ref: '#/definitions/main.ErrorEnvelope'
         "500":
@@ -441,8 +440,8 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/main.MessageEnvelope'
-        "400":
-          description: Bad Request
+        "401":
+          description: Unauthorized
           schema:
             $ref: '#/definitions/main.ErrorEnvelope'
         "404":
@@ -519,6 +518,10 @@ paths:
           description: Bad Request
           schema:
             $ref: '#/definitions/main.ErrorEnvelope'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/main.ErrorEnvelope'
         "404":
           description: Not Found
           schema:
@@ -550,10 +553,6 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/main.CommentsEnvelope'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/main.ErrorEnvelope'
         "404":
           description: Not Found
           schema:
@@ -592,6 +591,10 @@ paths:
             $ref: '#/definitions/main.MessageEnvelope'
         "400":
           description: Bad Request
+          schema:
+            $ref: '#/definitions/main.ErrorEnvelope'
+        "401":
+          description: Unauthorized
           schema:
             $ref: '#/definitions/main.ErrorEnvelope'
         "404":

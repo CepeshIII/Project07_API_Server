@@ -4,3 +4,7 @@
 .MVC
 bin/main.exe
 bin/build-errors.log
+lint.log
+.golangci.yml
+bin/main.exe
+bin/main.exe~
