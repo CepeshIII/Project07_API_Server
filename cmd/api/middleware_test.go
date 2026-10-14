@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	config1 "github.com/CepeshIII/Project07_API_Server/internal/config"
+	"github.com/CepeshIII/Project07_API_Server/internal/config"
 	"github.com/CepeshIII/Project07_API_Server/internal/ratelimiter"
 	"github.com/CepeshIII/Project07_API_Server/internal/store"
 	"github.com/CepeshIII/Project07_API_Server/internal/store/cache"
@@ -368,8 +368,8 @@ func TestCheckUserOwnershipMiddleware(t *testing.T) {
 					Roles: mockCacheRoleStore,
 				},
 				logger: zap.NewNop().Sugar(),
-				config: config1.Config{
-					Redis: config1.RedisConfig{
+				config: config.Config{
+					Redis: config.RedisConfig{
 						Enabled: tt.cachingEnabled,
 					},
 				},

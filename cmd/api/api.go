@@ -18,7 +18,7 @@ import (
 
 	"github.com/CepeshIII/Project07_API_Server/docs"
 	"github.com/CepeshIII/Project07_API_Server/internal/auth"
-	config1 "github.com/CepeshIII/Project07_API_Server/internal/config"
+	"github.com/CepeshIII/Project07_API_Server/internal/config"
 	"github.com/CepeshIII/Project07_API_Server/internal/mailer"
 	"github.com/CepeshIII/Project07_API_Server/internal/ratelimiter"
 	"github.com/CepeshIII/Project07_API_Server/internal/store"
@@ -29,7 +29,7 @@ import (
 )
 
 type application struct {
-	config       config1.Config
+	config       config.Config
 	store        store.Storage
 	logger       *zap.SugaredLogger
 	mailer       mailer.Client
