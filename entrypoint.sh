@@ -9,31 +9,35 @@ GO_PID=$!
 nginx -g 'daemon off;' &
 NGINX_PID=$!
 
-# Trap termination signals and forward them to both processes
-trap "kill -TERM $GO_PID $NGINX_PID; exit 0" SIGTERM SIGINT
+# # Trap termination signals and forward them to both processes
+# trap "kill -TERM $GO_PID $NGINX_PID; exit 0" SIGTERM SIGINT
 
-# Polling loop to check both processes simultaneously
+# Monitor background processes using POSIX-compatible kill -0
 while true; do
-    # Check if Go backend is still alive
-    if ! kill -0 $GO_PID 2>/dev/null; then
-        wait $GO_PID
-        GO_EXIT_CODE=$?
-        echo "Go backend died (exit code $GO_EXIT_CODE). Stopping Nginx..."
-        kill -TERM $NGINX_PID 2>/dev/null
-        wait $NGINX_PID
-        exit $GO_EXIT_CODE
+    if ! kill -0 "$NGINX_PID" 2>/dev/null; then
+        echo "Nginx died."
+        break
     fi
-
-    # Check if Nginx is still alive
-    if ! kill -0 $NGINX_PID 2>/dev/null; then
-        wait $NGINX_PID
-        NGINX_EXIT_CODE=$?
-        echo "Nginx died (exit code $NGINX_EXIT_CODE). Stopping Go backend..."
-        kill -TERM $GO_PID 2>/dev/null
-        wait $GO_PID
-        exit $NGINX_EXIT_CODE
+    
+    if ! kill -0 "$GO_PID" 2>/dev/null; then
+        echo "Go backend died."
+        break
     fi
-
-    # Brief pause to keep CPU usage at 0%
-    sleep 1
+    
+    sleep 2
 done
+
+# Cleanup any remaining processes just in case
+kill "$NGINX_PID" 2>/dev/null
+kill "$GO_PID" 2>/dev/null
+
+# Check if we are in production or local
+if [ "$TARGET" = "production" ] || [ -n "$K_SERVICE" ]; then
+    echo "Production environment detected. Sleeping forever to prevent crash loops..."
+    while true; do
+        sleep 60
+    done
+else
+    echo "Local environment detected. Exiting container to surface the error."
+    exit 1
+fi
