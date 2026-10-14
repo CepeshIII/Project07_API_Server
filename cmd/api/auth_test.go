@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -12,6 +13,8 @@ import (
 )
 
 func TestAccessTokenMiddleware(t *testing.T) {
+	t.Parallel()
+
 	type test struct {
 		name           string
 		mockSetup      func(m *auth.MockAuthenticator)
@@ -54,6 +57,8 @@ func TestAccessTokenMiddleware(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			mockAuth := new(auth.MockAuthenticator)
 			tt.mockSetup(mockAuth)
 
@@ -75,7 +80,7 @@ func TestAccessTokenMiddleware(t *testing.T) {
 			r.With(app.accessTokenMiddleware).Get("/", nextHandler)
 
 			// set up the request and recorder
-			req := httptest.NewRequest(http.MethodGet, "/", nil)
+			req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/", nil)
 			tt.cookieSetup(req)
 
 			rr := httptest.NewRecorder()

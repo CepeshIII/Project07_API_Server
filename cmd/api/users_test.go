@@ -42,8 +42,6 @@ func TestGetUserHandler(t *testing.T) {
 				return r.WithContext(context.WithValue(r.Context(), targetUserCtxKey, user))
 			},
 			dataValidationSetup: func(t *testing.T, rr *httptest.ResponseRecorder) {
-				t.Helper()
-
 				var response UserEnvelope
 				decodeAndValidate(t, rr.Body.String(), &response)
 
@@ -59,8 +57,6 @@ func TestGetUserHandler(t *testing.T) {
 				return r // context without target user
 			},
 			dataValidationSetup: func(t *testing.T, rr *httptest.ResponseRecorder) {
-				t.Helper()
-
 				var errorEnvelope ErrorEnvelope
 				decodeAndValidate(t, rr.Body.String(), &errorEnvelope)
 			},
@@ -69,7 +65,7 @@ func TestGetUserHandler(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			t.Helper()
+			//
 			t.Parallel() // Satisfies paralleltest for subtests
 
 			app := &application{
@@ -104,6 +100,8 @@ func TestGetUserHandler(t *testing.T) {
 }
 
 func TestActivateUserHandler(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name                string
 		expectedStatus      int
@@ -163,6 +161,8 @@ func TestActivateUserHandler(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			mockUsers := new(store.MockUserStore)
 			tt.mockSetup(mockUsers)
 
@@ -176,7 +176,7 @@ func TestActivateUserHandler(t *testing.T) {
 			r := chi.NewRouter()
 			r.Put("/users/activate/{token}", app.activateUserHandler)
 
-			req := httptest.NewRequest(http.MethodPut, "/users/activate/test-token", nil)
+			req := httptest.NewRequestWithContext(context.Background(), http.MethodPut, "/users/activate/test-token", nil)
 			rr := httptest.NewRecorder()
 
 			r.ServeHTTP(rr, req)
@@ -192,6 +192,8 @@ func TestActivateUserHandler(t *testing.T) {
 }
 
 func TestFollowUserHandler(t *testing.T) {
+	t.Parallel()
+
 	targetUser := &store.User{ID: 2, Username: "followed_user"}
 	authUserID := int64(1)
 
@@ -311,6 +313,8 @@ func TestFollowUserHandler(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			mockFollowers := new(store.MockFollowersStore)
 
 			tt.mockSetup(mockFollowers)
@@ -333,7 +337,7 @@ func TestFollowUserHandler(t *testing.T) {
 				r.Put("/follow", app.followUserHandler)
 			})
 
-			req := httptest.NewRequest(http.MethodPut, "/users/"+tt.targetIDParam+"/follow", nil)
+			req := httptest.NewRequestWithContext(context.Background(), http.MethodPut, "/users/"+tt.targetIDParam+"/follow", nil)
 			rr := httptest.NewRecorder()
 
 			r.ServeHTTP(rr, req)
@@ -349,6 +353,8 @@ func TestFollowUserHandler(t *testing.T) {
 }
 
 func TestUnfollowUserHandler(t *testing.T) {
+	t.Parallel()
+
 	targetUser := &store.User{ID: 2, Username: "followed_user"}
 	authUserID := int64(1)
 
@@ -468,6 +474,8 @@ func TestUnfollowUserHandler(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			mockFollowers := new(store.MockFollowersStore)
 
 			tt.mockSetup(mockFollowers)
@@ -490,7 +498,7 @@ func TestUnfollowUserHandler(t *testing.T) {
 				r.Put("/unfollow", app.unfollowUserHandler)
 			})
 
-			req := httptest.NewRequest(http.MethodPut, "/users/"+tt.targetIDParam+"/unfollow", nil)
+			req := httptest.NewRequestWithContext(context.Background(), http.MethodPut, "/users/"+tt.targetIDParam+"/unfollow", nil)
 			rr := httptest.NewRecorder()
 
 			r.ServeHTTP(rr, req)
@@ -506,6 +514,8 @@ func TestUnfollowUserHandler(t *testing.T) {
 }
 
 func TestGetFollowersHandler(t *testing.T) {
+	t.Parallel()
+
 	targetUser := &store.User{ID: 1, Username: "targetUser"}
 
 	tests := []struct {
@@ -564,6 +574,8 @@ func TestGetFollowersHandler(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			mockFollowers := new(store.MockFollowersStore)
 			tt.mockSetup(mockFollowers)
 
@@ -583,7 +595,7 @@ func TestGetFollowersHandler(t *testing.T) {
 				r.Get("/followers", app.getFollowersHandler)
 			})
 
-			req := httptest.NewRequest(http.MethodGet, "/users/1/followers", nil)
+			req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/users/1/followers", nil)
 			rr := httptest.NewRecorder()
 
 			r.ServeHTTP(rr, req)
@@ -599,6 +611,8 @@ func TestGetFollowersHandler(t *testing.T) {
 }
 
 func TestDeleteUserHandler(t *testing.T) {
+	t.Parallel()
+
 	targetUser := &store.User{ID: 2, Username: "followed_user"}
 
 	tests := []struct {
@@ -656,6 +670,8 @@ func TestDeleteUserHandler(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			mockUsers := new(store.MockUserStore)
 			tt.mockSetup(mockUsers)
 
@@ -677,7 +693,7 @@ func TestDeleteUserHandler(t *testing.T) {
 				r.Delete("/", app.deleteUserHandler)
 			})
 
-			req := httptest.NewRequest(http.MethodDelete, "/users/"+tt.targetIDParam, nil)
+			req := httptest.NewRequestWithContext(context.Background(), http.MethodDelete, "/users/"+tt.targetIDParam, nil)
 			rr := httptest.NewRecorder()
 
 			r.ServeHTTP(rr, req)

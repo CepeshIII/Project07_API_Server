@@ -19,6 +19,7 @@ func (app *application) AuthMiddleware() func(http.Handler) http.Handler {
 			payload, err := app.extractAndValidateBasicAuth(w, r)
 			if err != nil {
 				app.unauthorizedBasicErrorResponse(w, r, err)
+
 				return
 			}
 
@@ -42,6 +43,7 @@ func (app *application) basicAuthMiddleware() func(http.Handler) http.Handler {
 			_, err := app.extractAndValidateBasicAuth(w, r)
 			if err != nil {
 				app.unauthorizedBasicErrorResponse(w, r, err)
+
 				return
 			}
 

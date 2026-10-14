@@ -30,7 +30,8 @@ func (s *RolesStore) GetRoleByName(ctx context.Context, roleName string) (*store
 
 	var role store.Role
 	if data != "" {
-		if err := json.Unmarshal([]byte(data), &role); err != nil {
+		err := json.Unmarshal([]byte(data), &role)
+		if err != nil {
 			return nil, fmt.Errorf("failed to unmarshal role by name %s from cache: %w", roleName, err)
 		}
 	}
@@ -53,7 +54,8 @@ func (s *RolesStore) GetRoleByID(ctx context.Context, roleID int64) (*store.Role
 
 	var role store.Role
 	if data != "" {
-		if err := json.Unmarshal([]byte(data), &role); err != nil {
+		err := json.Unmarshal([]byte(data), &role)
+		if err != nil {
 			return nil, fmt.Errorf("failed to unmarshal role by id %d from cache: %w", roleID, err)
 		}
 	}

@@ -41,6 +41,7 @@ func (app *application) extractAndValidateBasicAuth(w http.ResponseWriter, r *ht
 
 	if err := app.validator.Struct(payload); err != nil {
 		app.clearSessionCookie(w)
+
 		return LoginUserPayload{}, fmt.Errorf("failed to validate login payload: %w", err)
 	}
 
@@ -66,6 +67,7 @@ func (app *application) verifyUserCredentials(w http.ResponseWriter, r *http.Req
 
 	if !user.Password.CheckHash(payload.Password) {
 		app.unauthorizedBasicErrorResponse(w, r, errInvalidUsernameOrPassword)
+
 		return nil, errInvalidUsernameOrPassword
 	}
 
@@ -88,6 +90,7 @@ func (app *application) createAndSetSessionAndToken(w http.ResponseWriter, r *ht
 
 	if err := app.store.Sessions.CreateSession(ctx, &session); err != nil {
 		app.internalServerError(w, r, err)
+
 		return err
 	}
 
@@ -106,6 +109,7 @@ func (app *application) createAndSetSessionAndToken(w http.ResponseWriter, r *ht
 	accessToken, accessTokenExp, err := app.generateAccessToken(session.UserID, "user")
 	if err != nil {
 		app.internalServerError(w, r, err)
+
 		return err
 	}
 

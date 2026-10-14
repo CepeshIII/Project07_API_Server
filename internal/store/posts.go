@@ -110,7 +110,8 @@ func (s *PostStore) GetPost(ctx context.Context, postID int64) (*Post, error) {
 	}
 
 	query := `
-    SELECT p.id, p.content, p.title, p.tags, p.created_at, p.updated_at, p.version, u.id, u.username, u.email, u.created_at, u.is_active, u.password, u.role_id
+    SELECT p.id, p.content, p.title, p.tags, p.created_at, p.updated_at, p.version, 
+	u.id, u.username, u.email, u.created_at, u.is_active, u.password, u.role_id
     FROM posts p
     LEFT JOIN users u ON p.user_id = u.id
     WHERE p.id = $1

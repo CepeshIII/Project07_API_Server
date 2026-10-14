@@ -58,7 +58,6 @@ func (p *password) CheckHash(text string) bool {
 
 func (p *password) generateHashFromPassword(text string) ([]byte, error) {
 	hash, err := bcrypt.GenerateFromPassword([]byte(text), bcrypt.DefaultCost)
-
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate hash from password: %w", err)
 	}
@@ -78,6 +77,7 @@ func (s *UserStore) Get(ctx context.Context, userID int64) (*User, error) {
 	FROM users
 	WHERE id = $1 
 	`
+
 	err := s.db.QueryRowContext(ctx, query, userID).Scan(
 		&user.ID,
 		&user.Username,
@@ -87,7 +87,6 @@ func (s *UserStore) Get(ctx context.Context, userID int64) (*User, error) {
 		&user.Password.hash,
 		&user.RoleID,
 	)
-
 	if err != nil {
 		switch {
 		case errors.Is(err, sql.ErrNoRows):
@@ -114,7 +113,6 @@ func (s *UserStore) CreateAndInvite(ctx context.Context, user *UserWithRole, tok
 
 		return nil
 	})
-
 }
 
 // ActivateAndClean verifies an invitation token, activates the user account, and removes the token.
@@ -135,6 +133,7 @@ func (s *UserStore) DeleteUser(ctx context.Context, userID int64) error {
 	DELETE FROM users
 	WHERE id = $1
 	`
+
 	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
 	defer cancel()
 
@@ -143,7 +142,6 @@ func (s *UserStore) DeleteUser(ctx context.Context, userID int64) error {
 		query,
 		userID,
 	)
-
 	if err != nil {
 		switch {
 		case errors.Is(err, sql.ErrNoRows):
@@ -162,6 +160,7 @@ func (s *UserStore) DeleteInvitation(ctx context.Context, userID int64) error {
 	DELETE FROM user_invitations
 	WHERE user_id = $1
 	`
+
 	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
 	defer cancel()
 
@@ -170,7 +169,6 @@ func (s *UserStore) DeleteInvitation(ctx context.Context, userID int64) error {
 		query,
 		userID,
 	)
-
 	if err != nil {
 		return fmt.Errorf("failed to delete invitation by userID %v: %w", userID, err)
 	}
@@ -182,6 +180,7 @@ func (s *UserStore) DeleteInvitation(ctx context.Context, userID int64) error {
 func (s *UserStore) GetByUsername(ctx context.Context, username string) (*User, error) {
 	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
 	defer cancel()
+
 	user := &User{}
 
 	query := `
@@ -199,7 +198,6 @@ func (s *UserStore) GetByUsername(ctx context.Context, username string) (*User, 
 		&user.Password.hash,
 		&user.RoleID,
 	)
-
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrNotFound
@@ -233,11 +231,9 @@ func (s *UserStore) GetByEmail(ctx context.Context, email string) (*User, error)
 		&user.Password.hash,
 		&user.RoleID,
 	)
-
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrNotFound
-
 		}
 
 		return nil, fmt.Errorf("failed to get user by email %s: %w", email, err)
@@ -289,7 +285,6 @@ func (s *UserStore) GetUserWithRole(ctx context.Context, userID int64) (*UserWit
 		&userWithRole.Role.Description,
 		&userWithRole.Role.Level,
 	)
-
 	if err != nil {
 		switch {
 		case errors.Is(err, sql.ErrNoRows):
@@ -330,7 +325,6 @@ func (s *UserStore) create(ctx context.Context, tx *sql.Tx, userWithRole *UserWi
 		&userWithRole.CreatedAt,
 		&userWithRole.RoleID,
 	)
-
 	if err != nil {
 		var pgErr *pq.Error
 		if errors.As(err, &pgErr) && pgErr.Code == "23505" { // Unique violation code in Postgres
@@ -358,13 +352,13 @@ func (s *UserStore) getUserIDFromInvitationAndCleanIt(ctx context.Context, tx *s
 	RETURNING user_id
 	`
 	userID := int64(0)
+
 	err := tx.QueryRowContext(
 		ctx,
 		query,
 		[]byte(token),
 		time.Now(),
 	).Scan(&userID)
-
 	if err != nil {
 		switch {
 		case errors.Is(err, sql.ErrNoRows):
@@ -386,6 +380,7 @@ func (s *UserStore) activateUserByUserID(ctx context.Context, tx *sql.Tx, userID
 	SET is_active = TRUE
 	WHERE id = $1
 	`
+
 	result, err := tx.ExecContext(ctx, query, userID)
 	if err != nil {
 		return fmt.Errorf("failed to execute user activation query for user %d: %w", userID, err)
@@ -408,6 +403,7 @@ func (s *UserStore) createUserInvitation(ctx context.Context, tx *sql.Tx, userID
 	INSERT INTO user_invitations (token, user_id, expires_at)
 	VALUES ($1, $2, $3)
 	`
+
 	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
 	defer cancel()
 
@@ -418,7 +414,6 @@ func (s *UserStore) createUserInvitation(ctx context.Context, tx *sql.Tx, userID
 		userID,
 		time.Now().Add(exp),
 	)
-
 	if err != nil {
 		return fmt.Errorf("failed to create user invitation for user %d: %w", userID, err)
 	}

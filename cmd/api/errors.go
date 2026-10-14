@@ -67,7 +67,8 @@ func (app *application) unauthorizedBasicErrorResponse(w http.ResponseWriter, r 
 func (app *application) forbiddenResponse(w http.ResponseWriter, r *http.Request) {
 	app.logger.Warnw("forbidden access", "method", r.Method, "path", r.URL.Path)
 
-	if err := writeJSONError(w, http.StatusForbidden, "forbidden"); err != nil {
+	err := writeJSONError(w, http.StatusForbidden, "forbidden")
+	if err != nil {
 		app.logger.Errorw(err.Error())
 	}
 }
@@ -93,7 +94,8 @@ func (app *application) rateLimitExceededResponse(w http.ResponseWriter, r *http
 
 	w.Header().Set("Retry-After", retryAfter)
 
-	if err := writeJSONError(w, http.StatusTooManyRequests, "rate limit exceeded, retry after: "+retryAfter); err != nil {
+	err := writeJSONError(w, http.StatusTooManyRequests, "rate limit exceeded, retry after: "+retryAfter)
+	if err != nil {
 		app.logger.Errorw(err.Error())
 	}
 }

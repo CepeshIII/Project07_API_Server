@@ -9,7 +9,11 @@ import (
 )
 
 func TestFixedWindowRateLimiterAllow(t *testing.T) {
+	t.Parallel()
+
 	t.Run("check if limiter does not allow request after crossing the limit", func(t *testing.T) {
+		t.Parallel()
+
 		limit := 100
 		requestsCount := 150
 
@@ -35,6 +39,8 @@ func TestFixedWindowRateLimiterAllow(t *testing.T) {
 	})
 
 	t.Run("check if limiter allows request after resetting", func(t *testing.T) {
+		t.Parallel()
+
 		limit := 100
 		requestsCount := 180
 
@@ -73,6 +79,8 @@ func TestFixedWindowRateLimiterAllow(t *testing.T) {
 	})
 
 	t.Run("check if limiter isolates different IPs", func(t *testing.T) {
+		t.Parallel()
+
 		limit := 2
 		window := 1 * time.Second
 		fwRateLimiter := NewFixedWindowRateLimiter(limit, window)
@@ -95,6 +103,8 @@ func TestFixedWindowRateLimiterAllow(t *testing.T) {
 	})
 
 	t.Run("check thread safety under concurrent load", func(t *testing.T) {
+		t.Parallel()
+
 		limit := 50
 		window := 2 * time.Second
 		fwRateLimiter := NewFixedWindowRateLimiter(limit, window)

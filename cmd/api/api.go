@@ -150,7 +150,8 @@ func (app *application) run(mux http.Handler) error {
 	go func() {
 		app.logger.Infow("Starting server", "addr", srv.Addr)
 
-		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+		err := srv.ListenAndServe()
+		if err != nil && !errors.Is(err, http.ErrServerClosed) {
 			shutdown <- err
 		}
 	}()

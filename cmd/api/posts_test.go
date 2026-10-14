@@ -18,6 +18,8 @@ import (
 )
 
 func TestCreatePostHandler(t *testing.T) {
+	t.Parallel()
+
 	authUserID := int64(1)
 	title := "Test title"
 	content := "Test content"
@@ -102,6 +104,8 @@ func TestCreatePostHandler(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			mockPosts := new(store.MockPostStore)
 			tt.mockSetup(mockPosts)
 
@@ -112,7 +116,7 @@ func TestCreatePostHandler(t *testing.T) {
 			}
 
 			body, _ := json.Marshal(tt.payload)
-			req := httptest.NewRequest(http.MethodPost, "/posts", bytes.NewBuffer(body))
+			req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/posts", bytes.NewBuffer(body))
 			req.Header.Set("Content-Type", "application/json")
 			req = tt.contextSetup(req)
 
@@ -133,6 +137,8 @@ func TestCreatePostHandler(t *testing.T) {
 }
 
 func TestGetPostHandler(t *testing.T) {
+	t.Parallel()
+
 	samplePost := &store.Post{
 		ID:      1,
 		Title:   "Sample Post",
@@ -190,6 +196,8 @@ func TestGetPostHandler(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			mockComments := new(store.MockCommentStore)
 			tt.mockSetup(mockComments)
 
@@ -199,7 +207,7 @@ func TestGetPostHandler(t *testing.T) {
 				validator: validator.New(validator.WithRequiredStructEnabled()),
 			}
 
-			req := httptest.NewRequest(http.MethodGet, "/posts/1", nil)
+			req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/posts/1", nil)
 			req = tt.contextSetup(req)
 			rr := httptest.NewRecorder()
 
@@ -218,6 +226,8 @@ func TestGetPostHandler(t *testing.T) {
 }
 
 func TestGetAllPostsHandler(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name                string
 		mockSetup           func(m *store.MockPostStore)
@@ -250,6 +260,8 @@ func TestGetAllPostsHandler(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			mockPosts := new(store.MockPostStore)
 			tt.mockSetup(mockPosts)
 
@@ -259,7 +271,7 @@ func TestGetAllPostsHandler(t *testing.T) {
 				validator: validator.New(validator.WithRequiredStructEnabled()),
 			}
 
-			req := httptest.NewRequest(http.MethodGet, "/posts", nil)
+			req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/posts", nil)
 			rr := httptest.NewRecorder()
 
 			r := chi.NewRouter()
@@ -277,8 +289,11 @@ func TestGetAllPostsHandler(t *testing.T) {
 }
 
 func TestCreateCommentHandler(t *testing.T) {
+	t.Parallel()
+
 	authUserID := int64(1)
 	postID := int64(10)
+	content := "Great post!"
 
 	tests := []struct {
 		name                string
@@ -291,7 +306,7 @@ func TestCreateCommentHandler(t *testing.T) {
 		{
 			name:           "Success add comment",
 			expectedStatus: http.StatusCreated,
-			payload:        CreateCommentPayload{Content: "Great post!"},
+			payload:        CreateCommentPayload{Content: content},
 			contextSetup: func(r *http.Request) *http.Request {
 				ctx := r.Context()
 				ctx = context.WithValue(ctx, authUserIDCtxKey, authUserID)
@@ -312,7 +327,7 @@ func TestCreateCommentHandler(t *testing.T) {
 		{
 			name:           "Auth user missing",
 			expectedStatus: http.StatusInternalServerError,
-			payload:        CreateCommentPayload{Content: "Great post!"},
+			payload:        CreateCommentPayload{Content: content},
 			contextSetup: func(r *http.Request) *http.Request {
 				return r.WithContext(context.WithValue(r.Context(), postIDCtxKey, postID))
 			},
@@ -343,6 +358,8 @@ func TestCreateCommentHandler(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			mockComments := new(store.MockCommentStore)
 			tt.mockSetup(mockComments)
 
@@ -353,7 +370,7 @@ func TestCreateCommentHandler(t *testing.T) {
 			}
 
 			body, _ := json.Marshal(tt.payload)
-			req := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/posts/%d/comments", postID), bytes.NewBuffer(body))
+			req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, fmt.Sprintf("/posts/%d/comments", postID), bytes.NewBuffer(body))
 			req.Header.Set("Content-Type", "application/json")
 			req = tt.contextSetup(req)
 			rr := httptest.NewRecorder()
@@ -373,6 +390,8 @@ func TestCreateCommentHandler(t *testing.T) {
 }
 
 func TestGetPostCommentsHandler(t *testing.T) {
+	t.Parallel()
+
 	postID := int64(10)
 
 	tests := []struct {
@@ -426,6 +445,8 @@ func TestGetPostCommentsHandler(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			mockComments := new(store.MockCommentStore)
 			tt.mockSetup(mockComments)
 
@@ -435,7 +456,7 @@ func TestGetPostCommentsHandler(t *testing.T) {
 				validator: validator.New(validator.WithRequiredStructEnabled()),
 			}
 
-			req := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/posts/%d/comments", postID), nil)
+			req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, fmt.Sprintf("/posts/%d/comments", postID), nil)
 			req = tt.contextSetup(req)
 			rr := httptest.NewRecorder()
 
@@ -454,6 +475,8 @@ func TestGetPostCommentsHandler(t *testing.T) {
 }
 
 func TestUpdatePostHandler(t *testing.T) {
+	t.Parallel()
+
 	postID := int64(10)
 
 	tests := []struct {
@@ -528,6 +551,8 @@ func TestUpdatePostHandler(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			mockPosts := new(store.MockPostStore)
 			tt.mockSetup(mockPosts)
 
@@ -538,7 +563,7 @@ func TestUpdatePostHandler(t *testing.T) {
 			}
 
 			body, _ := json.Marshal(tt.payload)
-			req := httptest.NewRequest(http.MethodPatch, fmt.Sprintf("/posts/%d", postID), bytes.NewBuffer(body))
+			req := httptest.NewRequestWithContext(context.Background(), http.MethodPatch, fmt.Sprintf("/posts/%d", postID), bytes.NewBuffer(body))
 			req.Header.Set("Content-Type", "application/json")
 			req = tt.contextSetup(req)
 			rr := httptest.NewRecorder()
@@ -558,6 +583,8 @@ func TestUpdatePostHandler(t *testing.T) {
 }
 
 func TestDeletePostHandler(t *testing.T) {
+	t.Parallel()
+
 	postID := int64(10)
 
 	tests := []struct {
@@ -656,6 +683,8 @@ func TestDeletePostHandler(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			mockComments := new(store.MockCommentStore)
 			mockPosts := new(store.MockPostStore)
 			tt.mockSetup(mockComments, mockPosts)
@@ -669,7 +698,7 @@ func TestDeletePostHandler(t *testing.T) {
 				validator: validator.New(validator.WithRequiredStructEnabled()),
 			}
 
-			req := httptest.NewRequest(http.MethodDelete, fmt.Sprintf("/posts/%d", postID), nil)
+			req := httptest.NewRequestWithContext(context.Background(), http.MethodDelete, fmt.Sprintf("/posts/%d", postID), nil)
 			req = tt.contextSetup(req)
 			rr := httptest.NewRecorder()
 

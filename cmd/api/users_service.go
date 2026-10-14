@@ -33,7 +33,8 @@ func (app *application) getUser(ctx context.Context, userID int64) (*store.User,
 
 	// Populate cache asynchronously or synchronously on a cache miss
 	if app.config.Redis.Enabled {
-		if err := app.cacheStorage.Users.SetUser(ctx, user); err != nil {
+		err := app.cacheStorage.Users.SetUser(ctx, user)
+		if err != nil {
 			app.logger.Errorw("cache store error", "userID", userID, "error", err.Error())
 		}
 	}
@@ -59,7 +60,8 @@ func (app *application) getRole(ctx context.Context, roleID int64) (*store.Role,
 	}
 
 	if app.config.Redis.Enabled {
-		if err := app.cacheStorage.Roles.SetRole(ctx, role); err != nil {
+		err := app.cacheStorage.Roles.SetRole(ctx, role)
+		if err != nil {
 			app.logger.Errorw("cache store error", "roleId", roleID, "error", err.Error())
 		}
 	}
@@ -88,7 +90,8 @@ func (app *application) getRoleByName(
 	}
 
 	if app.config.Redis.Enabled {
-		if err := app.cacheStorage.Roles.SetRole(ctx, role); err != nil {
+		err := app.cacheStorage.Roles.SetRole(ctx, role)
+		if err != nil {
 			app.logger.Errorw("cache store error", "roleName", roleName, "error", err.Error())
 		}
 	}

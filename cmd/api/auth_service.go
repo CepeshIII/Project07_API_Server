@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/CepeshIII/Project07_API_Server/internal/credential"
 	"github.com/CepeshIII/Project07_API_Server/internal/mailer"
 	"github.com/CepeshIII/Project07_API_Server/internal/store"
 )
@@ -63,4 +64,32 @@ func (app *application) sendUserActivation(ctx context.Context, plainToken strin
 	}
 
 	return nil
+}
+
+func (app *application) Register(ctx context.Context, payload RegisterUserPayload) (*store.User, string, error) {
+	userWithRole := &store.UserWithRole{
+		User: store.User{
+			Username: payload.Username,
+			Email:    payload.Email,
+		},
+		Role: store.Role{
+			Name: "user",
+		},
+	}
+
+	if err := userWithRole.Password.Set(payload.Password); err != nil {
+		return nil, "", fmt.Errorf("failed to hash password: %w", err)
+	}
+
+	plainToken, tokenHash := credential.New()
+
+	if err := app.store.Users.CreateAndInvite(ctx, userWithRole, tokenHash, app.config.Mail.Exp); err != nil {
+		return nil, "", err // Caught by handler for duplicate checks
+	}
+
+	if err := app.sendUserActivation(ctx, plainToken, userWithRole); err != nil {
+		return nil, "", fmt.Errorf("failed to send activation email: %w", err)
+	}
+
+	return &userWithRole.User, plainToken, nil
 }

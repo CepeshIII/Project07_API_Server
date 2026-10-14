@@ -10,12 +10,12 @@ import (
 
 // Config holds all application configuration structures.
 type Config struct {
-	Addr        string `envconfig:"ADDR" default:":8080"`
-	ExternalURL string `envconfig:"EXTERMAL_URL" default:"localhost:8080"`
-	FrontendURL string `envconfig:"FRONTEND_URL" default:"http://localhost:4000"`
-	ViteAPIURL  string `envconfig:"VITE_API_URL" default:"127.0.0.1:7777"`
-	Env         string `envconfig:"ENV" default:"production"`
-	LoggerEnv   string `envconfig:"LOGGER_ENV" default:"development"`
+	Addr        string `default:":8080"                 envconfig:"ADDR"`
+	ExternalURL string `default:"localhost:8080"        envconfig:"EXTERMAL_URL"`
+	FrontendURL string `default:"http://localhost:4000" envconfig:"FRONTEND_URL"`
+	ViteAPIURL  string `default:"127.0.0.1:7777"        envconfig:"VITE_API_URL"`
+	Env         string `default:"production"            envconfig:"ENV"`
+	LoggerEnv   string `default:"development"           envconfig:"LOGGER_ENV"`
 	Server      ServerConfig
 	DB          DBConfig
 	Pagination  PaginationConfig
@@ -27,27 +27,27 @@ type Config struct {
 
 // ServerConfig holds HTTP server tuning parameters and timeouts.
 type ServerConfig struct {
-	WriteTimeout    time.Duration `envconfig:"SERVER_WRITE_TIMEOUT" default:"30s"`
-	ReadTimeout     time.Duration `envconfig:"SERVER_READ_TIMEOUT" default:"10s"`
-	IdleTimeout     time.Duration `envconfig:"SERVER_IDLE_TIMEOUT" default:"1m"`
-	ShutdownTimeout time.Duration `envconfig:"SERVER_SHUTDOWN_TIMEOUT" default:"5s"`
-	RequestTimeout  time.Duration `envconfig:"REQUEST_TIMEOUT" default:"60s"`
+	WriteTimeout    time.Duration `default:"30s" envconfig:"SERVER_WRITE_TIMEOUT"`
+	ReadTimeout     time.Duration `default:"10s" envconfig:"SERVER_READ_TIMEOUT"`
+	IdleTimeout     time.Duration `default:"1m"  envconfig:"SERVER_IDLE_TIMEOUT"`
+	ShutdownTimeout time.Duration `default:"5s"  envconfig:"SERVER_SHUTDOWN_TIMEOUT"`
+	RequestTimeout  time.Duration `default:"60s" envconfig:"REQUEST_TIMEOUT"`
 }
 
 // DBConfig holds database-related configuration parameters.
 type DBConfig struct {
-	Address        string `envconfig:"DB_ADDR" default:"postgres://admin:adminpassword@localhost:5433/social?sslmode=disable"`
-	MaxOpenConns   int    `envconfig:"DB_MAX_OPEN_CONNS" default:"30"`
-	MaxIdleConns   int    `envconfig:"DB_MAX_IDLE_CONNS" default:"30"`
-	MaxIdleTime    string `envconfig:"DB_MAX_IDLE_TIME" default:"15m"`
-	MigrationsPath string `envconfig:"MIGRATIONS_PATH" default:"./cmd/migrate/migrations"`
+	Address        string `default:"postgres://admin:adminpassword@localhost:5433/social?sslmode=disable" envconfig:"DB_ADDR"`
+	MaxOpenConns   int    `default:"30"                                                                   envconfig:"DB_MAX_OPEN_CONNS"`
+	MaxIdleConns   int    `default:"30"                                                                   envconfig:"DB_MAX_IDLE_CONNS"`
+	MaxIdleTime    string `default:"15m"                                                                  envconfig:"DB_MAX_IDLE_TIME"`
+	MigrationsPath string `default:"./cmd/migrate/migrations"                                             envconfig:"MIGRATIONS_PATH"`
 }
 
 // MailConfig holds mailer and email delivery configuration parameters.
 type MailConfig struct {
-	Exp        time.Duration `envconfig:"INVITATION_EXP" default:"24h"`
-	FromEmail  string        `envconfig:"FROM_EMAIL" default:""`
-	MaxRetries int           `envconfig:"MAX_RETRIES_TO_SEND_EMAIL" default:"1"`
+	Exp        time.Duration `default:"24h" envconfig:"INVITATION_EXP"`
+	FromEmail  string        `default:""    envconfig:"FROM_EMAIL"`
+	MaxRetries int           `default:"1"   envconfig:"MAX_RETRIES_TO_SEND_EMAIL"`
 	SendGrid   SendGridConfig
 	Mailtrap   MailtrapConfig
 }
@@ -78,37 +78,37 @@ type BasicAuthConfig struct {
 // JWTAuthConfig holds JWT signing secrets and issuer information.
 type JWTAuthConfig struct {
 	Secret string `envconfig:"AUTH_JWT_SECRET" required:"true"`
-	Iss    string `envconfig:"AUTH_JWT_ISS" default:"project07"`
+	Iss    string `default:"project07"         envconfig:"AUTH_JWT_ISS"`
 }
 
 // TokensConfig holds token expiration settings.
 type TokensConfig struct {
-	AccessTokenExp  time.Duration `envconfig:"ACCESS_TOKEN_EXP" default:"15m"`
-	SessionTokenExp time.Duration `envconfig:"SESSION_TOKEN_EXP" default:"720h"`
+	AccessTokenExp  time.Duration `default:"15m"  envconfig:"ACCESS_TOKEN_EXP"`
+	SessionTokenExp time.Duration `default:"720h" envconfig:"SESSION_TOKEN_EXP"`
 }
 
 // RedisConfig holds Redis caching configuration.
 type RedisConfig struct {
-	Addr    string `envconfig:"REDIS_ADDR" default:"localhost:6379"`
-	Pw      string `envconfig:"REDIS_PW" default:""`
-	DB      int    `envconfig:"REDIS_DB" default:"0"`
-	Enabled bool   `envconfig:"REDIS_ENABLED" default:"false"`
+	Addr    string `default:"localhost:6379" envconfig:"REDIS_ADDR"`
+	Pw      string `default:""               envconfig:"REDIS_PW"`
+	DB      int    `default:"0"              envconfig:"REDIS_DB"`
+	Enabled bool   `default:"false"          envconfig:"REDIS_ENABLED"`
 }
 
 // RateLimiterConfig holds rate limiter throttling parameters.
 type RateLimiterConfig struct {
-	RequestsPerTimeFrame int           `envconfig:"RATE_LIMITER_REQUESTS_PER_TIME_FRAME" default:"100"`
-	TimeFrame            time.Duration `envconfig:"RATE_LIMITER_TIME_FRAME_IN_SEC" default:"60s"`
-	Enabled              bool          `envconfig:"RATE_LIMITER_ENABLED" default:"false"`
+	RequestsPerTimeFrame int           `default:"100"   envconfig:"RATE_LIMITER_REQUESTS_PER_TIME_FRAME"`
+	TimeFrame            time.Duration `default:"60s"   envconfig:"RATE_LIMITER_TIME_FRAME_IN_SEC"`
+	Enabled              bool          `default:"false" envconfig:"RATE_LIMITER_ENABLED"`
 }
 
 // PaginationConfig holds pagination default settings and bounds for list endpoints.
 type PaginationConfig struct {
 	// DefaultLimit is the default number of items returned per page if none is specified.
-	DefaultLimit int `envconfig:"PAGINATION_DEFAULT_LIMIT" default:"20"`
+	DefaultLimit int `default:"20" envconfig:"PAGINATION_DEFAULT_LIMIT"`
 
 	// MaxLimit is the maximum allowable number of items per page to prevent heavy queries from straining the database.
-	MaxLimit int `envconfig:"PAGINATION_MAX_LIMIT" default:"100"`
+	MaxLimit int `default:"100" envconfig:"PAGINATION_MAX_LIMIT"`
 }
 
 // Load reads environment variables into the Config struct and wraps any errors for lint compliance.

@@ -11,14 +11,14 @@ import (
 )
 
 type RegisterUserPayload struct {
-	Username string `json:"username" validate:"required,max=100" default:"user"`
-	Email    string `json:"email" validate:"required,email,max=255"  default:"mail@example.com"`
-	Password string `json:"password" validate:"required,min=3,max=72"  default:"password"`
+	Username string `default:"user"             json:"username" validate:"required,max=100"`
+	Email    string `default:"mail@example.com" json:"email"    validate:"required,email,max=255"`
+	Password string `default:"password"         json:"password" validate:"required,min=3,max=72"`
 }
 
 type LoginUserPayload struct {
-	Username string `json:"username" validate:"required,max=100" default:"user"`
-	Password string `json:"password" validate:"required,min=3,max=72"  default:"password"`
+	Username string `default:"user"     json:"username" validate:"required,max=100"`
+	Password string `default:"password" json:"password" validate:"required,min=3,max=72"`
 }
 
 type RegisterUserResponse struct {
@@ -43,38 +43,22 @@ func (app *application) registerUserHandler(w http.ResponseWriter, r *http.Reque
 	var payload RegisterUserPayload
 	if err := readJSON(w, r, &payload); err != nil {
 		app.badRequestResponse(w, r, err)
+
 		return
 	}
 
 	if err := app.validator.Struct(payload); err != nil {
 		app.badRequestResponse(w, r, err)
+
 		return
 	}
 
-	userWithRole := &store.UserWithRole{
-		User: store.User{
-			Username: payload.Username,
-			Email:    payload.Email,
-		},
-		Role: store.Role{
-			Name: "user",
-		},
-	}
-
-	// hash the user password
-	if err := userWithRole.Password.Set(payload.Password); err != nil {
-		app.internalServerError(w, r, err)
-		return
-	}
-
-	ctx := r.Context()
-
-	plainToken, tokenHash := credential.New()
-
-	// store the user
-	if err := app.store.Users.CreateAndInvite(ctx, userWithRole, tokenHash, app.config.Mail.Exp); err != nil {
+	// Delegate all business logic and side effects to a service or method
+	user, plainToken, err := app.Register(r.Context(), payload)
+	if err != nil {
 		if errors.Is(err, store.ErrDuplicateEmail) || errors.Is(err, store.ErrDuplicateUsername) {
 			app.conflictResponse(w, r, err)
+
 			return
 		}
 
@@ -83,19 +67,15 @@ func (app *application) registerUserHandler(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	if err := app.sendUserActivation(r.Context(), plainToken, userWithRole); err != nil {
-		app.internalServerError(w, r, err)
-		return
-	}
-
 	response := &RegisterUserResponse{
-		User:  &userWithRole.User,
+		User:  user,
 		Token: plainToken,
 	}
 
 	// send the response
 	if err := app.jsonResponse(w, http.StatusCreated, response); err != nil {
 		app.internalServerError(w, r, err)
+
 		return
 	}
 }
@@ -150,6 +130,7 @@ func (app *application) loginUserHandler(w http.ResponseWriter, r *http.Request)
 	// check the user password
 	if !user.Password.CheckHash(payload.Password) {
 		app.statusUnauthorizedError(w, r, errInvalidUsernameOrPassword)
+
 		return
 	}
 
@@ -169,6 +150,7 @@ func (app *application) loginUserHandler(w http.ResponseWriter, r *http.Request)
 	// store session in DB
 	if err := app.store.Sessions.CreateSession(ctx, &session); err != nil {
 		app.internalServerError(w, r, err)
+
 		return
 	}
 
@@ -179,6 +161,7 @@ func (app *application) loginUserHandler(w http.ResponseWriter, r *http.Request)
 	accesstoken, accessTokenExp, err := app.generateAccessToken(user.ID, "user")
 	if err != nil {
 		app.internalServerError(w, r, err)
+
 		return
 	}
 
@@ -191,6 +174,7 @@ func (app *application) loginUserHandler(w http.ResponseWriter, r *http.Request)
 	}
 	if err := app.jsonResponse(w, http.StatusOK, response); err != nil {
 		app.internalServerError(w, r, err)
+
 		return
 	}
 }
@@ -213,6 +197,7 @@ func (app *application) refreshAccessTokenHandler(w http.ResponseWriter, r *http
 	if err != nil {
 		if errors.Is(err, http.ErrNoCookie) {
 			app.statusUnauthorizedError(w, r, errSessionTokenExpired)
+
 			return
 		}
 
@@ -260,6 +245,7 @@ func (app *application) refreshAccessTokenHandler(w http.ResponseWriter, r *http
 	accesstoken, accessTokenExp, err := app.generateAccessToken(session.UserID, "user")
 	if err != nil {
 		app.internalServerError(w, r, err)
+
 		return
 	}
 
@@ -268,6 +254,7 @@ func (app *application) refreshAccessTokenHandler(w http.ResponseWriter, r *http
 
 	if err := app.jsonResponse(w, http.StatusOK, "Access token refreshed successfully"); err != nil {
 		app.internalServerError(w, r, err)
+
 		return
 	}
 }

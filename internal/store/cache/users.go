@@ -34,7 +34,8 @@ func (s *UserStore) GetUserByID(ctx context.Context, userID int64) (*store.User,
 
 	var user store.User
 	if data != "" {
-		if err := json.Unmarshal([]byte(data), &user); err != nil {
+		err := json.Unmarshal([]byte(data), &user)
+		if err != nil {
 			return nil, fmt.Errorf("failed to unmarshal user by id %d from cache: %w", userID, err)
 		}
 	}

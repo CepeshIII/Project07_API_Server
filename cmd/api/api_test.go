@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -13,6 +14,8 @@ import (
 )
 
 func TestRateLimiterIntegration(t *testing.T) {
+	t.Parallel()
+
 	ip := "192.168.1.1"
 	limit := 1
 	window := 2 * time.Second
@@ -30,14 +33,14 @@ func TestRateLimiterIntegration(t *testing.T) {
 	}))
 
 	// 1. First request should succeed
-	req1 := httptest.NewRequest(http.MethodGet, "/", nil)
+	req1 := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/", nil)
 	req1.RemoteAddr = ip
 	rr1 := httptest.NewRecorder()
 	r.ServeHTTP(rr1, req1)
 	assert.Equal(t, http.StatusOK, rr1.Code)
 
 	// 2. Second request should be rate-limited
-	req2 := httptest.NewRequest(http.MethodGet, "/", nil)
+	req2 := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/", nil)
 	req2.RemoteAddr = ip
 	rr2 := httptest.NewRecorder()
 	r.ServeHTTP(rr2, req2)

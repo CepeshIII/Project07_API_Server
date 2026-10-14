@@ -19,6 +19,8 @@ import (
 )
 
 func TestRateLimiterMiddleWare(t *testing.T) {
+	t.Parallel()
+
 	ip := "192.168.1.1"
 	retryAfter := 10 * time.Second
 
@@ -35,7 +37,6 @@ func TestRateLimiterMiddleWare(t *testing.T) {
 				m.On("Allow", ip).Return(true, retryAfter)
 			},
 			ResultCheck: func(t *testing.T, rr *httptest.ResponseRecorder) {
-				t.Helper() // Satisfies the thelper linter rule
 			},
 		},
 		{
@@ -45,8 +46,6 @@ func TestRateLimiterMiddleWare(t *testing.T) {
 				m.On("Allow", ip).Return(false, retryAfter)
 			},
 			ResultCheck: func(t *testing.T, rr *httptest.ResponseRecorder) {
-				t.Helper() // Satisfies the thelper linter rule
-
 				retryAfterHeader := rr.Header().Get("Retry-After")
 				assert.NotEmpty(t, retryAfterHeader)
 			},
@@ -55,6 +54,8 @@ func TestRateLimiterMiddleWare(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.Name, func(t *testing.T) {
+			t.Parallel()
+
 			mockLimiter := ratelimiter.NewMockRateLimiter()
 			test.MockSetup(mockLimiter)
 
@@ -68,7 +69,7 @@ func TestRateLimiterMiddleWare(t *testing.T) {
 				w.WriteHeader(http.StatusOK)
 			}))
 
-			req := httptest.NewRequest(http.MethodGet, "/", nil)
+			req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/", nil)
 			req.RemoteAddr = ip
 			rr := httptest.NewRecorder()
 
@@ -85,6 +86,8 @@ func TestRateLimiterMiddleWare(t *testing.T) {
 }
 
 func TestUserContextMiddleware(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name           string
 		userIDParam    string
@@ -125,6 +128,8 @@ func TestUserContextMiddleware(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			// initialize the mock user store and set up the expectations
 			mockUsers := new(store.MockUserStore)
 			tt.mockSetup(mockUsers)
@@ -147,7 +152,7 @@ func TestUserContextMiddleware(t *testing.T) {
 			r.With(app.userContextMiddleware).Get("/users/{userID}", nextHandler)
 
 			// set up the request to the router
-			req := httptest.NewRequest(http.MethodGet, "/users/"+tt.userIDParam, nil)
+			req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/users/"+tt.userIDParam, nil)
 			rr := httptest.NewRecorder()
 
 			r.ServeHTTP(rr, req)
@@ -160,6 +165,8 @@ func TestUserContextMiddleware(t *testing.T) {
 }
 
 func TestCheckUserOwnershipMiddleware(t *testing.T) {
+	t.Parallel()
+
 	authUser := &store.User{ID: 1, Username: "auth_user", RoleID: 1}
 	adminUser := &store.User{ID: 1, Username: "admin", RoleID: 3}
 	targetUser := &store.User{ID: 2, Username: "target_user", RoleID: 1}
@@ -342,6 +349,8 @@ func TestCheckUserOwnershipMiddleware(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			mockUserStore := new(store.MockUserStore)
 			mockCacheUserStore := new(cache.MockUserStore)
 			mockRolesStore := new(store.MockRolesStore)
@@ -381,7 +390,7 @@ func TestCheckUserOwnershipMiddleware(t *testing.T) {
 				r.Put("/test", app.checkUserOwnership("admin", nextHandler))
 			})
 
-			req := httptest.NewRequest(http.MethodPut, "/users/"+tt.targetIDParam+"/test", nil)
+			req := httptest.NewRequestWithContext(context.Background(), http.MethodPut, "/users/"+tt.targetIDParam+"/test", nil)
 			rr := httptest.NewRecorder()
 
 			r.ServeHTTP(rr, req)
